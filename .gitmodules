@@ -4,3 +4,6 @@
 [submodule "tests/TestImages"]
 	path = tests/TestImages
 	url = https://github.com/StbSharp/TestImages
+[submodule "modules/StbSharp.Shared"]
+	path = modules/StbSharp.Shared
+	url = https://github.com/TechnologicalPizza/StbSharp.Shared

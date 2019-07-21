@@ -17,7 +17,8 @@ namespace StbSharp.Tests
 		private static int stbSharpWrite;
 		private static int stbNativeWrite;
 
-		private delegate void WriteDelegate(byte[] data, int width, int height, StbImageWriteSharp.ColorComponents components, Stream stream);
+		private delegate void WriteDelegate(
+            byte[] data, int width, int height, StbImageWriteSharp.ColorComponents components, Stream stream);
 
 		private const int LoadTries = 10;
 

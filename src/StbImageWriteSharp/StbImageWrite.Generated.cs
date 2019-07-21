@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using StbSharp;
 
 namespace StbImageWriteSharp
 {
@@ -727,9 +728,9 @@ namespace StbImageWriteSharp
 		public static byte stbiw__paeth(int a, int b, int c)
 		{
 			int p = (int)(a + b - c);
-			int pa = (int)(CRuntime.abs((int)(p - a)));
-			int pb = (int)(CRuntime.abs((int)(p - b)));
-			int pc = (int)(CRuntime.abs((int)(p - c)));
+			int pa = (int)(Math.Abs((int)(p - a)));
+			int pb = (int)(Math.Abs((int)(p - b)));
+			int pc = (int)(Math.Abs((int)(p - c)));
 			if ((pa <= pb) && (pa <= pc))
 				return (byte)((a) & 0xff);
 			if (pb <= pc)
@@ -894,7 +895,7 @@ namespace StbImageWriteSharp
 						est = (int)(0);
 						for (i = (int)(0); (i) < (x * n); ++i)
 						{
-							est += (int)(CRuntime.abs((int)(line_buffer[i])));
+							est += (int)(Math.Abs((int)(line_buffer[i])));
 						}
 						if ((est) < (best_filter_val))
 						{
