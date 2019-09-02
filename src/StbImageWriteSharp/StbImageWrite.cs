@@ -4,28 +4,130 @@ using System.Text;
 
 namespace StbSharp
 {
-    internal static unsafe partial class StbImageWrite
+    public static unsafe partial class StbImageWrite
     {
-        public delegate int WriteCallback(Stream stream, byte[] buffer, Span<byte> data);
+        public delegate int WriteCallback(in WriteContext context, ReadOnlySpan<byte> data);
+        public delegate void ReadBytePixelsCallback(Span<byte> destination, int dataOffset);
+        public delegate void ReadFloatPixelsCallback(Span<float> destination, int dataOffset);
 
-        public readonly struct stbi__write_context
+        public readonly struct WriteContext
         {
-            public readonly WriteCallback callback;
-            public readonly Stream stream;
-            public readonly byte[] buffer;
+            public readonly ReadBytePixelsCallback ReadBytes;
+            public readonly ReadFloatPixelsCallback ReadFloats;
+            public readonly WriteCallback Write;
 
-            public readonly int stbi_write_tga_with_rle;
+            public readonly int Width;
+            public readonly int Height;
+            public readonly int Comp;
 
-            public stbi__write_context(WriteCallback callback, Stream stream, byte[] buffer)
+            public readonly Stream Output;
+            public readonly byte[] WriteBuffer;
+            public readonly byte[] ScratchBuffer;
+
+            public WriteContext(
+                ReadBytePixelsCallback readBytePixels,
+                ReadFloatPixelsCallback readFloatPixels,
+                WriteCallback writeCallback,
+                int width,
+                int height,
+                int comp,
+                Stream output,
+                byte[] writeBuffer,
+                byte[] scratchBuffer)
             {
-                this.callback = callback;
-                this.stream = stream;
-                this.buffer = buffer;
-                this.stbi_write_tga_with_rle = 1;
+                Write = writeCallback;
+                ReadBytes = readBytePixels;
+                ReadFloats = readFloatPixels;
+
+                Width = width;
+                Height = height;
+                Comp = comp;
+
+                Output = output;
+                WriteBuffer = writeBuffer;
+                ScratchBuffer = scratchBuffer;
+            }
+
+            public WriteContext(
+                ReadBytePixelsCallback readBytePixels,
+                ReadFloatPixelsCallback readFloatPixels,
+                int width,
+                int height,
+                int comp,
+                Stream output,
+                byte[] writeBuffer,
+                byte[] scratchBuffer) :
+                this(
+                    readBytePixels, readFloatPixels, DefaultWrite,
+                    width, height, comp,
+                    output, writeBuffer, scratchBuffer)
+            {
+            }
+
+            public ScratchBuffer GetScratch(int minSize)
+            {
+                return new ScratchBuffer(this, minSize);
+            }
+
+            public static int DefaultWrite(in WriteContext context, ReadOnlySpan<byte> data)
+            {
+                if (data.IsEmpty)
+                    return 0;
+
+                byte[] buffer = context.WriteBuffer;
+                int left = data.Length;
+                int offset = 0;
+                while (left > 0)
+                {
+                    int sliceLength = Math.Min(left, buffer.Length);
+                    for (int i = 0; i < sliceLength; i++)
+                        buffer[i] = data[i + offset];
+                    context.Output.Write(buffer, 0, sliceLength);
+
+                    left -= sliceLength;
+                    offset += sliceLength;
+                }
+                return data.Length;
             }
         }
 
-        public static void stbiw__writefv(stbi__write_context s, string fmt, params object[] v)
+        public ref struct ScratchBuffer
+        {
+            private byte* _ptr;
+            private Span<byte> _span;
+
+            public bool IsEmpty => _span.IsEmpty;
+
+            public ScratchBuffer(in WriteContext ctx, int minSize)
+            {
+                if (minSize > ctx.ScratchBuffer.Length)
+                {
+                    _ptr = (byte*)CRuntime.malloc(minSize);
+                    _span = new Span<byte>(_ptr, minSize);
+                }
+                else
+                {
+                    _ptr = null;
+                    _span = ctx.ScratchBuffer.AsSpan(0, minSize);
+                }
+            }
+
+            public Span<byte> AsSpan() => _span;
+            public Span<byte> AsSpan(int start) => _span.Slice(start);
+            public Span<byte> AsSpan(int start, int length) => _span.Slice(start, length);
+
+            public void Dispose()
+            {
+                _span = Span<byte>.Empty;
+                if (_ptr != null)
+                {
+                    CRuntime.free(_ptr);
+                    _ptr = null;
+                }
+            }
+        }
+
+        public static void stbiw__writefv(in WriteContext s, string fmt, Span<object> v)
         {
             Span<byte> buf = stackalloc byte[4];
 
@@ -40,7 +142,7 @@ namespace StbSharp
 
                     case '1':
                         buf[0] = (byte)((int)v[vindex++] & 0xff);
-                        s.callback(s.stream, s.buffer, buf.Slice(0, 1));
+                        s.Write(s, buf.Slice(0, 1));
                         break;
 
                     case '2':
@@ -48,7 +150,7 @@ namespace StbSharp
                         var x = (int)v[vindex++];
                         buf[0] = (byte)(x & 0xff);
                         buf[1] = (byte)((x >> 8) & 0xff);
-                        s.callback(s.stream, s.buffer, buf.Slice(0, 2));
+                        s.Write(s, buf.Slice(0, 2));
                         break;
                     }
 
@@ -59,122 +161,52 @@ namespace StbSharp
                         buf[1] = (byte)((x >> 8) & 0xff);
                         buf[2] = (byte)((x >> 16) & 0xff);
                         buf[3] = (byte)((x >> 24) & 0xff);
-                        s.callback(s.stream, s.buffer, buf.Slice(0, 4));
+                        s.Write(s, buf.Slice(0, 4));
                         break;
                     }
                 }
             }
         }
 
-        public static void stbiw__writef(stbi__write_context s, string fmt, params object[] v)
+        public static void stbiw__writef(in WriteContext s, string fmt, Span<object> v)
         {
             stbiw__writefv(s, fmt, v);
         }
 
-        public static int stbiw__outfile(stbi__write_context s, int rgb_dir, int vdir, int x, int y, int comp,
-            int expand_mono, void* data, int alpha, int pad, string fmt, params object[] v)
+        public static int stbiw__outfile(
+            in WriteContext s, bool flip_rgb, int vdir,
+            int expand_mono, int alpha_dir, int pad, string fmt, Span<object> v)
         {
-            if ((y < 0) || (x < 0))
-            {
+            if ((s.Height < 0) || (s.Width < 0))
                 return 0;
-            }
 
             stbiw__writefv(s, fmt, v);
-            stbiw__write_pixels(s, rgb_dir, vdir, x, y, comp, data, alpha, pad, expand_mono);
+            stbiw__write_pixels(s, flip_rgb, vdir, alpha_dir, pad, expand_mono);
             return 1;
         }
 
-        public static int stbi_write_bmp_to_func(
-            WriteCallback func,
-            Stream stream,
-            byte[] buffer,
-            int x,
-            int y,
-            int comp,
-            void* data)
-        {
-            var s = new stbi__write_context(func, stream, buffer);
-            return stbi_write_bmp_core(s, x, y, comp, data);
-        }
-
-        public static int stbi_write_tga_to_func(
-            WriteCallback func,
-            Stream stream,
-            byte[] buffer,
-            int x,
-            int y,
-            int comp,
-            void* data)
-        {
-            var s = new stbi__write_context(func, stream, buffer);
-            return stbi_write_tga_core(s, x, y, comp, data);
-        }
-
-        public static int stbi_write_hdr_to_func(
-            WriteCallback func,
-            Stream stream,
-            byte[] buffer,
-            int x,
-            int y,
-            int comp,
-            float* data
-            )
-        {
-            var s = new stbi__write_context(func, stream, buffer);
-            return stbi_write_hdr_core(s, x, y, comp, data);
-        }
-
-        public static int stbi_write_png_to_func(
-            WriteCallback func,
-            Stream stream,
-            byte[] buffer,
-            int x,
-            int y,
-            int comp,
-            PngCompressionLevel q,
-            void* data,
-            int stride_bytes)
-        {
-            int len;
-            var png = stbi_write_png_to_mem((byte*)(data), stride_bytes, x, y, comp, q, &len);
-            if (png == null)
-                return 0;
-            func(stream, buffer, new Span<byte>(png, len));
-            CRuntime.free(png);
-            return 1;
-        }
-
-        public static int stbi_write_jpg_to_func(
-            WriteCallback func,
-            Stream stream,
-            byte[] buffer,
-            int x,
-            int y,
-            int comp,
-            void* data,
-            int quality)
-        {
-            var s = new stbi__write_context(func, stream, buffer);
-            return stbi_write_jpg_core(s, x, y, comp, data, quality);
-        }
-
-        private static readonly byte[] stbi_hdr_radiance_header = 
+        private static readonly byte[] stbi_hdr_radiance_header =
             Encoding.UTF8.GetBytes("#?RADIANCE\n# Written by stb_image_write.h\nFORMAT=32-bit_rle_rgbe\n");
 
-        public static int stbi_write_hdr_core(stbi__write_context s, int x, int y, int comp, float* data)
+        public static int stbi_write_hdr_core(in WriteContext s)
         {
-            if ((y <= 0) || (x <= 0) || (data == null))
+            int x = s.Width;
+            int y = s.Height;
+            if (y <= 0 || x <= 0)
                 return 0;
 
-            s.callback(s.stream, s.buffer, stbi_hdr_radiance_header);
+            s.Write(s, stbi_hdr_radiance_header);
 
             byte[] bytes = Encoding.UTF8.GetBytes(string.Format(
                 "EXPOSURE=          1.0000000000000\n\n-Y {0} +X {1}\n", y.ToString(), x.ToString()));
-            s.callback(s.stream, s.buffer, bytes);
+            s.Write(s, bytes);
 
-            var scratch = (byte*)(CRuntime.malloc((ulong)(x * 4)));
-            for (int i = 0; i < y; i++)
-                stbiw__write_hdr_scanline(s, x, comp, scratch, data + comp * i * x);
+            byte* scratch = null;
+            if ((x < 8) || (x >= 32768))
+                scratch = (byte*)CRuntime.malloc((ulong)(x * 4));
+
+            for (int line = 0; line < y; line++)
+                stbiw__write_hdr_scanline(s, line, scratch);
 
             CRuntime.free(scratch);
             return 1;
