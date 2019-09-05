@@ -15,6 +15,7 @@ namespace StbSharp
             public readonly ReadBytePixelsCallback ReadBytes;
             public readonly ReadFloatPixelsCallback ReadFloats;
             public readonly WriteCallback Write;
+            public readonly Action<double> Progress;
 
             public readonly int Width;
             public readonly int Height;
@@ -28,6 +29,7 @@ namespace StbSharp
                 ReadBytePixelsCallback readBytePixels,
                 ReadFloatPixelsCallback readFloatPixels,
                 WriteCallback writeCallback,
+                Action<double> progressCallback,
                 int width,
                 int height,
                 int comp,
@@ -38,7 +40,7 @@ namespace StbSharp
                 Write = writeCallback;
                 ReadBytes = readBytePixels;
                 ReadFloats = readFloatPixels;
-
+                Progress = progressCallback;
                 Width = width;
                 Height = height;
                 Comp = comp;
@@ -51,6 +53,7 @@ namespace StbSharp
             public WriteContext(
                 ReadBytePixelsCallback readBytePixels,
                 ReadFloatPixelsCallback readFloatPixels,
+                Action<double> progressCallback,
                 int width,
                 int height,
                 int comp,
@@ -58,7 +61,7 @@ namespace StbSharp
                 byte[] writeBuffer,
                 byte[] scratchBuffer) :
                 this(
-                    readBytePixels, readFloatPixels, DefaultWrite,
+                    readBytePixels, readFloatPixels, DefaultWrite, progressCallback,
                     width, height, comp,
                     output, writeBuffer, scratchBuffer)
             {

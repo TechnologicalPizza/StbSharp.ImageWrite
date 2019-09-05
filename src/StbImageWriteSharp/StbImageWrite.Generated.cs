@@ -15,39 +15,7 @@ namespace StbSharp
         #region PNG Settings
 
         public static int stbi__flip_vertically_on_write = (int)(0);
-
         public static int stbi_png_write_force_filter = (int)(-1);
-
-        public const int stbi_png_minimum_compression_quality = 3;
-
-        public const int stbi_png_default_compression_quality = 8;
-
-        #endregion
-
-        #region zlib Constants
-
-        public static ushort[] lengthc =
-        {
-            3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99,
-            115, 131, 163, 195, 227, 258, 259
-        };
-
-        public static byte[] lengtheb =
-        {
-            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0
-        };
-
-        public static ushort[] distc =
-        {
-            1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025,
-            1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 32768
-        };
-
-        public static byte[] disteb =
-        {
-            0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12,
-            12, 13, 13
-        };
 
         #endregion
 
@@ -707,7 +675,8 @@ namespace StbSharp
         /// <param name="data"></param>
         /// <param name="level"></param>
         /// <returns></returns>
-        public delegate IMemoryResult ZlibDeflateCompressDelegate(ReadOnlySpan<byte> data, CompressionLevel level);
+        public delegate IMemoryResult ZlibDeflateCompressDelegate(
+            ReadOnlySpan<byte> data, CompressionLevel level, Action<double> onProgress);
 
         /// <summary>
         /// Custom zlib deflate (RFC 1951) compression implementation 
@@ -767,10 +736,11 @@ namespace StbSharp
         /// <param name="data"></param>
         /// <param name="compressionLevel"></param>
         /// <returns></returns>
-        public static IMemoryResult zlib_deflate_compress(ReadOnlySpan<byte> data, CompressionLevel compressionLevel)
+        public static IMemoryResult zlib_deflate_compress(
+            ReadOnlySpan<byte> data, CompressionLevel compressionLevel, Action<double> onProgress)
         {
             if (CustomZlibDeflateCompress != null)
-                return CustomZlibDeflateCompress.Invoke(data, compressionLevel);
+                return CustomZlibDeflateCompress.Invoke(data, compressionLevel, onProgress);
 
             var output = new MemoryStream();
             output.WriteByte(zlib_dotnet_deflate_CMF);
@@ -780,11 +750,23 @@ namespace StbSharp
             {
                 using (var deflate = new DeflateStream(output, compressionLevel, leaveOpen: true))
                 using (var source = new UnmanagedMemoryStream(dataPtr, data.Length))
-                    source.CopyTo(deflate);
+                {
+                    // we don't want to use Stream.CopyTo as we want progress reporting
+                    byte[] copyBuffer = new byte[1024 * 16];
+                    int total = 0;
+                    int read;
+                    while ((read = source.Read(copyBuffer, 0, copyBuffer.Length)) != 0)
+                    {
+                        deflate.Write(copyBuffer, 0, read);
+
+                        total += read;
+                        onProgress.Invoke(total / (double)data.Length);
+                    }
+                }
             }
 
-            calc_adler32_checksum(data, out uint adlerA, out uint adlerB);
 
+            calc_adler32_checksum(data, out uint adlerA, out uint adlerB);
             byte[] adlerChecksum = BitConverter.GetBytes((adlerB << 16) | adlerA);
             adlerChecksum.AsSpan().Reverse();
             output.Write(adlerChecksum, 0, adlerChecksum.Length);
@@ -882,7 +864,7 @@ namespace StbSharp
             try
             {
                 var filtSpan = new ReadOnlySpan<byte>(filt, y * (stride + 1));
-                compressed = zlib_deflate_compress(filtSpan, level);
+                compressed = zlib_deflate_compress(filtSpan, level, s.Progress);
                 if (compressed == null)
                     return false;
             }
