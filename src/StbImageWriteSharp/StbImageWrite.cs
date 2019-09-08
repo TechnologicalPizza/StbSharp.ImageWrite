@@ -6,16 +6,17 @@ namespace StbSharp
 {
     public static unsafe partial class StbImageWrite
     {
-        public delegate int WriteCallback(in WriteContext context, ReadOnlySpan<byte> data);
         public delegate void ReadBytePixelsCallback(Span<byte> destination, int dataOffset);
         public delegate void ReadFloatPixelsCallback(Span<float> destination, int dataOffset);
+        public delegate int WriteCallback(in WriteContext context, ReadOnlySpan<byte> data);
+        public delegate void WriteProgressCallback(double progress);
 
         public readonly struct WriteContext
         {
             public readonly ReadBytePixelsCallback ReadBytes;
             public readonly ReadFloatPixelsCallback ReadFloats;
             public readonly WriteCallback Write;
-            public readonly Action<double> Progress;
+            public readonly WriteProgressCallback Progress;
 
             public readonly int Width;
             public readonly int Height;
@@ -29,7 +30,7 @@ namespace StbSharp
                 ReadBytePixelsCallback readBytePixels,
                 ReadFloatPixelsCallback readFloatPixels,
                 WriteCallback writeCallback,
-                Action<double> progressCallback,
+                WriteProgressCallback progressCallback,
                 int width,
                 int height,
                 int comp,
@@ -53,7 +54,7 @@ namespace StbSharp
             public WriteContext(
                 ReadBytePixelsCallback readBytePixels,
                 ReadFloatPixelsCallback readFloatPixels,
-                Action<double> progressCallback,
+                WriteProgressCallback progressCallback,
                 int width,
                 int height,
                 int comp,
