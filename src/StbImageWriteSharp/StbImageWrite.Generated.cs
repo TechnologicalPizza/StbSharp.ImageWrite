@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using StbSharp;
 
@@ -747,7 +748,7 @@ namespace StbSharp
             output.WriteByte(header.GetCMF());
             output.WriteByte(header.GetFLG());
 
-            byte[] copyBuffer = new byte[1024 * 40];
+            byte[] copyBuffer = new byte[1024 * 8];
             fixed (byte* dataPtr = &MemoryMarshal.GetReference(data))
             {
                 using (var deflate = new DeflateStream(output, level, leaveOpen: true))
@@ -779,6 +780,7 @@ namespace StbSharp
         #endregion
 
         // TODO: add more color formats and a palette
+        // TODO: split IDAT chunk into multiple
         // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
 
         public static bool stbi_write_png_core(in WriteContext s, CompressionLevel level)
@@ -788,10 +790,9 @@ namespace StbSharp
             int w = s.Width;
             int h = s.Height;
             int n = s.Comp;
-            int force_filter = (int)(stbi_png_write_force_filter);
-            int y = 0;
-
             int stride = (int)(w * n);
+
+            int force_filter = (int)(stbi_png_write_force_filter);
             if (force_filter >= (5))
                 force_filter = -1;
 
@@ -808,7 +809,9 @@ namespace StbSharp
             }
 
             double progressStep = 0;
-            double progressStepSize = Math.Max(1, w * h / 1000);
+            int pixels = w * h;
+            double progressStepCount = pixels / (1000 * Math.Log(pixels, 2));
+            double progressStepSize = Math.Max(1, pixels / progressStepCount);
 
             ScratchBuffer pixelRowScratch = s.GetScratch(stride);
             try
@@ -816,7 +819,7 @@ namespace StbSharp
                 Span<byte> pixelRow = pixelRowScratch.AsSpan();
                 fixed (byte* pixelRowPtr = &MemoryMarshal.GetReference(pixelRow))
                 {
-                    for (y = 0; (y) < (h); ++y)
+                    for (int y = 0; (y) < (h); ++y)
                     {
                         s.ReadBytes(pixelRow, y * stride);
 
@@ -860,6 +863,7 @@ namespace StbSharp
                         filt[y * (stride + 1)] = (byte)filter_type;
                         CRuntime.memcpy(filt + y * (stride + 1) + 1, line_buffer, (ulong)(stride));
 
+                        // TODO: tidy this up a notch so it's easier to reuse in other implementations
                         if (s.Progress != null)
                         {
                             progressStep += w;
@@ -871,6 +875,11 @@ namespace StbSharp
                         }
                     }
                 }
+            }
+            catch
+            {
+                CRuntime.free(filt);
+                throw;
             }
             finally
             {
@@ -909,110 +918,81 @@ namespace StbSharp
 
                 // sizeof sig + (fields + CRCs)
                 Span<byte> tmp = stackalloc byte[8 + sizeof(uint) * (5 + 2) + 5];
-                int off = 0;
+                int pos = 0;
 
                 #region PNG Signature
 
-                tmp[off++] = 137;
-                tmp[off++] = 80;
-                tmp[off++] = 78;
-                tmp[off++] = 71;
-                tmp[off++] = 13;
-                tmp[off++] = 10;
-                tmp[off++] = 26;
-                tmp[off++] = 10;
+                tmp[pos++] = 137;
+                tmp[pos++] = 80;
+                tmp[pos++] = 78;
+                tmp[pos++] = 71;
+                tmp[pos++] = 13;
+                tmp[pos++] = 10;
+                tmp[pos++] = 26;
+                tmp[pos++] = 10;
 
                 #endregion
 
                 #region IHDR chunk
 
-                stbiw__set_uint(tmp.Slice(off), 13); // chunk length
-                off += 4;
+                var hdrChunk = new PngChunk(13, "IHDR");
+                hdrChunk.WriteHeader(tmp, ref pos);
 
-                tmp[off++] = ((byte)(("IHDR"[0]) & 0xff));
-                tmp[off++] = ((byte)(("IHDR"[1]) & 0xff));
-                tmp[off++] = ((byte)(("IHDR"[2]) & 0xff));
-                tmp[off++] = ((byte)(("IHDR"[3]) & 0xff));
+                hdrChunk.SlurpWriteUInt32((uint)w, tmp, ref pos); // width
+                hdrChunk.SlurpWriteUInt32((uint)h, tmp, ref pos); // height
 
-                // chunk data
-                stbiw__set_uint(tmp.Slice(off), (uint)w); // width
-                off += 4;
+                byte colorType = (byte)(colorTypeMap[n] & 0xff);
+                hdrChunk.SlurpWriteInt8(8, tmp, ref pos); // bit depth
+                hdrChunk.SlurpWriteInt8(colorType, tmp, ref pos); // color type
+                hdrChunk.SlurpWriteInt8(0, tmp, ref pos); // compression method
+                hdrChunk.SlurpWriteInt8(0, tmp, ref pos); // filter method
+                hdrChunk.SlurpWriteInt8(0, tmp, ref pos); // interlace method
 
-                stbiw__set_uint(tmp.Slice(off), (uint)h); // height
-                off += 4;
-
-                tmp[off++] = 8; // bit depth
-                tmp[off++] = (byte)(colorTypeMap[n] & 0xff); // color type
-                tmp[off++] = 0; // compression method
-                tmp[off++] = 0; // filter method
-                tmp[off++] = 0; // interlace method
-
-                // chunk crc
-                uint headerChunkCrc = stbiw__calc_crc32(tmp.Slice(off - 17, 17));
-                stbiw__set_uint(tmp.Slice(off), headerChunkCrc);
-                off += 4;
+                hdrChunk.WriteFooter(tmp, ref pos);
 
                 #endregion
 
-                #region IDAT chunk
-
                 // TODO: write multiple IDAT chunks instead of one large to lower memory usage
 
-                stbiw__set_uint(tmp.Slice(off), (uint)compressed.Length); // chunk length
-                off += 4;
+                #region IDAT chunk
 
-                tmp[off++] = ((byte)(("IDAT"[0]) & 0xff));
-                tmp[off++] = ((byte)(("IDAT"[1]) & 0xff));
-                tmp[off++] = ((byte)(("IDAT"[2]) & 0xff));
-                tmp[off++] = ((byte)(("IDAT"[3]) & 0xff));
+                var datChunk = new PngChunk(compressed.Length, "IDAT");
+                datChunk.WriteHeader(tmp, ref pos);
 
-                s.Write(s, tmp.Slice(0, off));
+                s.Write(s, tmp.Slice(0, pos));
+                pos = 0;
 
-                // chunk data
                 var compressedSpan = new Span<byte>((void*)compressed.Pointer, compressed.Length);
-                //if (s.Progress != null)
-                //{
-                //    int written = 0;
-                //    while (written < compressed.Length)
-                //    {
-                //        int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Length);
-                //        s.Write(s, compressedSpan.Slice(written, sliceLength));
-                //        written += sliceLength;
-                //
-                //        s.Progress(written / (double)compressed.Length * 0.01 + 0.99);
-                //    }
-                //}
-                //else
+                if (s.Progress != null)
                 {
+                    int written = 0;
+                    while (written < compressed.Length)
+                    {
+                        int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Length);
+                        s.Write(s, compressedSpan.Slice(written, sliceLength));
+
+                        written += sliceLength;
+                        s.Progress(written / (double)compressed.Length * 0.01 + 0.99);
+                    }
+                }
+                else
+                {
+                    // skip some overhead if the progress callback is null
                     s.Write(s, compressedSpan);
                 }
 
-                // chunk crc
-                uint dataChunkNameCrc = stbiw__calc_crc32(tmp.Slice(off - 4, 4));
-                off = 0; // reset offset after calculating chunk name crc
-
-                uint dataChunkCrc = stbiw__calc_crc32(compressedSpan, ~dataChunkNameCrc);
-                stbiw__set_uint(tmp.Slice(off), dataChunkCrc);
-                off += 4;
+                datChunk.SlurpData(compressedSpan);
+                datChunk.WriteFooter(tmp, ref pos);
 
                 #endregion
 
                 #region IEND chunk
 
-                for (int i = 0; i < 4; i++) // chunk length
-                    tmp[off++] = 0;
+                var endChunk = new PngChunk(0, "IEND");
+                endChunk.WriteHeader(tmp, ref pos);
+                endChunk.WriteFooter(tmp, ref pos);
 
-                tmp[off++] = ((byte)(("IEND"[0]) & 0xff));
-                tmp[off++] = ((byte)(("IEND"[1]) & 0xff));
-                tmp[off++] = ((byte)(("IEND"[2]) & 0xff));
-                tmp[off++] = ((byte)(("IEND"[3]) & 0xff));
-
-                // chunk crc
-                uint endChunkCrc = stbiw__calc_crc32(tmp.Slice(off - 4, 4));
-                stbiw__set_uint(tmp.Slice(off), endChunkCrc);
-                off += 4;
-
-                s.Write(s, tmp.Slice(0, off));
+                s.Write(s, tmp.Slice(0, pos));
 
                 #endregion
 
@@ -1023,6 +1003,84 @@ namespace StbSharp
                 compressed.Dispose();
             }
         }
+
+        #region PngChunk
+
+        private struct PngChunk
+        {
+            public readonly uint Length;
+            public readonly uint Type;
+            public uint Crc;
+
+            public unsafe PngChunk(int length, string type)
+            {
+                if (length < 0)
+                    throw new ArgumentOutOfRangeException(nameof(length), "The value may not be negative.");
+                if (type == null)
+                    throw new ArgumentNullException(nameof(type));
+                if (type.Length != 4)
+                    throw new ArgumentException(nameof(type), "The type must be exactly 4 characters long.");
+
+                uint u32Type = 0;
+                var u32TypeSpan = new Span<byte>(&u32Type, sizeof(uint));
+                for (int i = 0; i < type.Length; i++)
+                {
+                    if (type[i] > byte.MaxValue)
+                        throw new ArgumentException(
+                            nameof(type), "The character '" + type[i] + "' is invalid.");
+                    u32TypeSpan[i] = (byte)type[i];
+                }
+
+                // write_uint writes u32 as big endian but the type should be 
+                // little endian so it needs to be reversed for write_uint,
+                // but after calculating the crc
+                uint crc = stbiw__calc_crc32(u32TypeSpan);
+                u32TypeSpan.Reverse();
+
+                Length = (uint)length;
+                Type = u32Type;
+                Crc = crc;
+            }
+
+            public void WriteHeader(Span<byte> output, ref int position)
+            {
+                write_uint(Length, output, ref position);
+                write_uint(Type, output, ref position);
+            }
+
+            public void WriteFooter(Span<byte> output, ref int position)
+            {
+                write_uint(~Crc, output, ref position);
+            }
+
+            #region Slurp
+
+            public void SlurpData(ReadOnlySpan<byte> data)
+            {
+                Crc = stbiw__calc_crc32(data, Crc);
+            }
+
+            private void SlurpWrite(Span<byte> span, int size, int position)
+            {
+                SlurpData(span.Slice(position - size, size));
+            }
+
+            public void SlurpWriteUInt32(uint value, Span<byte> output, ref int position)
+            {
+                write_uint(value, output, ref position);
+                SlurpWrite(output, sizeof(uint), position);
+            }
+
+            public void SlurpWriteInt8(byte value, Span<byte> output, ref int position)
+            {
+                output[position++] = value;
+                SlurpWrite(output, sizeof(byte), position);
+            }
+
+            #endregion
+        }
+
+        #endregion
 
         public static void stbiw__encode_png_line(
             byte* pixels, int stride_bytes, int width, int height, int y,
@@ -1119,7 +1177,7 @@ namespace StbSharp
             }
         }
 
-        public static void stbiw__set_uint(Span<byte> output, uint value)
+        public static void set_uint(uint value, Span<byte> output)
         {
             output[0] = ((byte)((value >> 24) & 0xff));
             output[1] = ((byte)((value >> 16) & 0xff));
@@ -1127,17 +1185,24 @@ namespace StbSharp
             output[3] = ((byte)((value) & 0xff));
         }
 
-        public static uint stbiw__calc_crc32(uint crc, byte value)
+        public static void write_uint(uint value, Span<byte> output, ref int position)
+        {
+            set_uint(value, output.Slice(position));
+            position += sizeof(uint);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint stbiw__calc_crc32(byte value, uint crc)
         {
             return (crc >> 8) ^ crc_table[value ^ (crc & 0xff)];
         }
 
-        public static uint stbiw__calc_crc32(ReadOnlySpan<byte> buffer, uint initialCrc = ~0u)
+        public static uint stbiw__calc_crc32(ReadOnlySpan<byte> buffer, uint baseCrc = ~0u)
         {
-            uint crc = initialCrc;
+            uint crc = baseCrc;
             for (int i = 0; i < buffer.Length; ++i)
-                crc = (uint)((crc >> 8) ^ crc_table[buffer[i] ^ (crc & 0xff)]);
-            return ~crc;
+                crc = stbiw__calc_crc32(buffer[i], crc);
+            return crc;
         }
 
         #endregion
