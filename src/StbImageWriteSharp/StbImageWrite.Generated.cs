@@ -505,18 +505,18 @@ namespace StbSharp
 
         public static void stbiw__linear_to_rgbe(Span<byte> rgbe, float* linear)
         {
-            int exponent;
-            float maxcomp = ((linear[0]) > ((linear[1]) > (linear[2]) ? (linear[1]) : (linear[2]))
-                    ? (linear[0])
-                    : ((linear[1]) > (linear[2]) ? (linear[1]) : (linear[2])));
+            float maxcomp = (linear[0] > (linear[1] > linear[2] 
+                ? linear[1] : linear[2]) 
+                ? linear[0] : (linear[1] > linear[2] ? linear[1] : linear[2]));
 
-            if ((maxcomp) < (1e-32f))
+            if (maxcomp < 1e-32f)
             {
-                rgbe[0] = (byte)(rgbe[1] = (byte)(rgbe[2] = (byte)(rgbe[3] = (byte)(0))));
+                for (int i = 0; i < 4; i++)
+                    rgbe[i] = 0;
             }
             else
             {
-                float normalize = (float)((float)(CRuntime.frexp((double)(maxcomp), &exponent)) * 256.0f / maxcomp);
+                float normalize = (float)(CRuntime.frexp(maxcomp, out int exponent) * 256.0 / maxcomp);
                 rgbe[0] = ((byte)(linear[0] * normalize));
                 rgbe[1] = ((byte)(linear[1] * normalize));
                 rgbe[2] = ((byte)(linear[2] * normalize));
@@ -547,6 +547,7 @@ namespace StbSharp
         {
             int w = s.Width;
             int n = s.Comp;
+            int x;
 
             Span<byte> scanlineheader = stackalloc byte[4];
             scanlineheader[0] = (byte)(2);
@@ -556,7 +557,6 @@ namespace StbSharp
 
             Span<byte> rgbe = stackalloc byte[4];
             float* linear = stackalloc float[3];
-            int x;
             scanlineheader[2] = (byte)((w & 0xff00) >> 8);
             scanlineheader[3] = (byte)(w & 0x00ff);
 
@@ -571,13 +571,13 @@ namespace StbSharp
                     {
                         case 4:
                         case 3:
-                            linear[2] = (float)(scanline[x * n + 2]);
-                            linear[1] = (float)(scanline[x * n + 1]);
-                            linear[0] = (float)(scanline[x * n + 0]);
+                            linear[0] = scanline[x * n + 0];
+                            linear[1] = scanline[x * n + 1];
+                            linear[2] = scanline[x * n + 2];
                             break;
 
                         default:
-                            linear[0] = (float)(linear[1] = (float)(linear[2] = (float)(scanline[x * n + 0])));
+                            linear[0] = linear[1] = linear[2] = scanline[x * n + 0];
                             break;
                     }
 
@@ -595,13 +595,13 @@ namespace StbSharp
                     {
                         case 4:
                         case 3:
-                            linear[2] = (float)(scanline[x * n + 2]);
-                            linear[1] = (float)(scanline[x * n + 1]);
-                            linear[0] = (float)(scanline[x * n + 0]);
+                            linear[0] = scanline[x * n + 0];
+                            linear[1] = scanline[x * n + 1];
+                            linear[2] = scanline[x * n + 2];
                             break;
 
                         default:
-                            linear[0] = (float)(linear[1] = (float)(linear[2] = (float)(scanline[x * n + 0])));
+                            linear[0] = linear[1] = linear[2] = scanline[x * n + 0];
                             break;
                     }
 
@@ -613,9 +613,11 @@ namespace StbSharp
                 }
 
                 s.Write(s, scanlineheader);
+
                 for (int c = 0; (c) < (4); c++)
                 {
                     byte* comp = &scratch[w * c];
+
                     x = 0;
                     while ((x) < (w))
                     {
@@ -629,6 +631,7 @@ namespace StbSharp
 
                         if ((r + 2) >= (w))
                             r = (int)(w);
+
                         while ((x) < (r))
                         {
                             int len = (int)(r - x);
@@ -664,17 +667,8 @@ namespace StbSharp
         #region zlib Deflate
 
         /// <summary>
-        /// The CMF (Compression Method and Flags) and  FLG (FLaGs) zlib header bytes
-        /// for a <see cref="DeflateStream"/> (for .NET framework 4.5 and above).
-        /// </summary>
-        public static readonly byte[] zlib_deflate_dotnet_header = { 0x58, 0x85 };
-
-        /// <summary>
         /// Delegate for a zlib deflate (RFC 1951) compression implementation.
         /// </summary>
-        /// <param name="data"></param>
-        /// <param name="level"></param>
-        /// <returns></returns>
         public delegate IMemoryResult ZlibDeflateCompressDelegate(
             ReadOnlySpan<byte> data, CompressionLevel level, WriteProgressCallback onProgress);
 
@@ -684,35 +678,15 @@ namespace StbSharp
         /// </summary>
         public static ZlibDeflateCompressDelegate CustomZlibDeflateCompress;
 
-        private class GCHandleDeflateResult : IMemoryResult
-        {
-            private GCHandle _handle;
-
-            public bool IsAllocated => _handle.IsAllocated;
-            public int Length { get; }
-            public IntPtr Pointer => _handle.AddrOfPinnedObject();
-
-            public GCHandleDeflateResult(GCHandle handle, int length)
-            {
-                _handle = handle;
-                Length = length;
-            }
-
-            public void Dispose()
-            {
-                if (IsAllocated)
-                    _handle.Free();
-            }
-        }
-
         // TODO: copy adler32 implementation from zlib library (as it's should be faster)
         public static uint calc_adler32_checksum(ReadOnlySpan<byte> data)
         {
             uint s1 = 1;
             uint s2 = 0;
 
-            int blocklen = (int)(data.Length % 5552);
             int j = 0;
+            int blocklen = (int)(data.Length % 5552);
+
             while (j < data.Length)
             {
                 for (int i = 0; i < blocklen; ++i)
@@ -734,9 +708,6 @@ namespace StbSharp
         /// adds zlib (RFC 1951) headers and checksum.
         /// <para>Can be replaced by assigning <see cref="CustomZlibDeflateCompress"/>.</para>
         /// </summary>
-        /// <param name="data"></param>
-        /// <param name="level"></param>
-        /// <returns></returns>
         public static IMemoryResult zlib_deflate_compress(
             ReadOnlySpan<byte> data, CompressionLevel level, WriteProgressCallback onProgress)
         {
@@ -774,7 +745,7 @@ namespace StbSharp
 
             byte[] result = output.GetBuffer();
             var gcHandle = GCHandle.Alloc(result, GCHandleType.Pinned);
-            return new GCHandleDeflateResult(gcHandle, (int)output.Length);
+            return new GCHandleResult(gcHandle, (int)output.Length);
         }
 
         #endregion
@@ -952,7 +923,8 @@ namespace StbSharp
 
                 #endregion
 
-                // TODO: write multiple IDAT chunks instead of one large to lower memory usage
+                // TODO: write multiple IDAT chunks instead of one large to lower memory usage,
+                //       this requires quite a lot of work as the encoding needs to be redesigned
 
                 #region IDAT chunk
 
@@ -1106,7 +1078,7 @@ namespace StbSharp
             int type = (int)(mymap[filter_type]);
             byte* z = pixels; // + stride_bytes * ((stbi__flip_vertically_on_write) != 0 ? height - 1 - y : y);
             int signed_stride = (int)((stbi__flip_vertically_on_write) != 0 ? -stride_bytes : stride_bytes);
-            if ((type) == (0))
+            if ((type) == 0)
             {
                 CRuntime.memcpy(line_buffer, z, (ulong)(stride));
                 return;
@@ -1335,7 +1307,7 @@ namespace StbSharp
             }
 
             diff = (int)(DU[0] - DC);
-            if ((diff) == (0))
+            if ((diff) == 0)
             {
                 stbiw__jpg_writeBits(s, bitBuf, bitCnt, HTDC[0, 0], HTDC[0, 1]);
             }
@@ -1347,11 +1319,11 @@ namespace StbSharp
             }
 
             end0pos = (int)(63);
-            for (; ((end0pos) > (0)) && ((DU[end0pos]) == (0)); --end0pos)
+            for (; ((end0pos) > (0)) && ((DU[end0pos]) == 0); --end0pos)
             {
             }
 
-            if ((end0pos) == (0))
+            if ((end0pos) == 0)
             {
                 stbiw__jpg_writeBits(s, bitBuf, bitCnt, EOB[0], EOB[1]);
                 return (int)(DU[0]);
@@ -1361,7 +1333,7 @@ namespace StbSharp
             {
                 int startpos = (int)(i);
                 int nrzeroes;
-                for (; ((DU[i]) == (0)) && (i <= end0pos); ++i)
+                for (; ((DU[i]) == 0) && (i <= end0pos); ++i)
                 {
                 }
 
