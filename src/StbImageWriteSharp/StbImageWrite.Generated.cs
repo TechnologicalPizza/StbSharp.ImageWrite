@@ -7,6 +7,7 @@ using System.IO.Compression;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 using StbSharp;
 
 namespace StbSharp
@@ -670,7 +671,8 @@ namespace StbSharp
         /// Delegate for a zlib deflate (RFC 1951) compression implementation.
         /// </summary>
         public delegate IMemoryResult ZlibDeflateCompressDelegate(
-            ReadOnlySpan<byte> data, CompressionLevel level, WriteProgressCallback onProgress);
+            ReadOnlySpan<byte> data, CompressionLevel level, 
+            CancellationToken cancellation, WriteProgressCallback onProgress);
 
         /// <summary>
         /// Custom zlib deflate (RFC 1951) compression implementation 
@@ -679,7 +681,8 @@ namespace StbSharp
         public static ZlibDeflateCompressDelegate CustomZlibDeflateCompress;
 
         // TODO: copy adler32 implementation from zlib library (as it's should be faster)
-        public static uint calc_adler32_checksum(ReadOnlySpan<byte> data)
+        public static uint calc_adler32_checksum(
+            ReadOnlySpan<byte> data, CancellationToken cancellation)
         {
             uint s1 = 1;
             uint s2 = 0;
@@ -689,6 +692,8 @@ namespace StbSharp
 
             while (j < data.Length)
             {
+                cancellation.ThrowIfCancellationRequested();
+
                 for (int i = 0; i < blocklen; ++i)
                 {
                     s1 += data[j + i];
@@ -709,19 +714,24 @@ namespace StbSharp
         /// <para>Can be replaced by assigning <see cref="CustomZlibDeflateCompress"/>.</para>
         /// </summary>
         public static IMemoryResult zlib_deflate_compress(
-            ReadOnlySpan<byte> data, CompressionLevel level, WriteProgressCallback onProgress)
+            ReadOnlySpan<byte> data, CompressionLevel level,
+            CancellationToken cancellation, WriteProgressCallback onProgress)
         {
             if (CustomZlibDeflateCompress != null)
-                return CustomZlibDeflateCompress.Invoke(data, level, onProgress);
+                return CustomZlibDeflateCompress.Invoke(data, level, cancellation, onProgress);
 
-            var output = new MemoryStream();
+            cancellation.ThrowIfCancellationRequested();
+
             var header = ZlibHeader.CreateForDeflateStream(level);
+            var output = new MemoryStream();
             output.WriteByte(header.GetCMF());
             output.WriteByte(header.GetFLG());
 
             byte[] copyBuffer = new byte[1024 * 8];
             fixed (byte* dataPtr = &MemoryMarshal.GetReference(data))
             {
+                cancellation.ThrowIfCancellationRequested();
+
                 using (var deflate = new DeflateStream(output, level, leaveOpen: true))
                 using (var source = new UnmanagedMemoryStream(dataPtr, data.Length))
                 {
@@ -730,16 +740,18 @@ namespace StbSharp
                     int read;
                     while ((read = source.Read(copyBuffer, 0, copyBuffer.Length)) != 0)
                     {
+                        cancellation.ThrowIfCancellationRequested();
+
                         deflate.Write(copyBuffer, 0, read);
-                    
+
                         total += read;
                         onProgress?.Invoke(total / (double)data.Length);
                     }
                 }
             }
 
-            uint adler32 = calc_adler32_checksum(data);
-            byte[] adlerBytes = BitConverter.GetBytes(adler32);
+            uint adlerSum = calc_adler32_checksum(data, cancellation);
+            byte[] adlerBytes = BitConverter.GetBytes(adlerSum);
             adlerBytes.AsSpan().Reverse();
             output.Write(adlerBytes, 0, adlerBytes.Length);
 
@@ -756,6 +768,8 @@ namespace StbSharp
 
         public static bool stbi_write_png_core(in WriteContext s, CompressionLevel level)
         {
+            s.Cancellation.ThrowIfCancellationRequested();
+
             ZlibHeader.ConvertLevel(level); // acts as a parameter check
 
             int w = s.Width;
@@ -766,6 +780,8 @@ namespace StbSharp
             int force_filter = (int)(stbi_png_write_force_filter);
             if (force_filter >= (5))
                 force_filter = -1;
+
+            s.Cancellation.ThrowIfCancellationRequested();
 
             int filtLength = (stride + 1) * h;
             byte* filt = (byte*)(CRuntime.malloc(filtLength));
@@ -778,6 +794,8 @@ namespace StbSharp
                 CRuntime.free(filt);
                 return false;
             }
+
+            s.Cancellation.ThrowIfCancellationRequested();
 
             double progressStep = 0;
             int pixels = w * h;
@@ -792,6 +810,7 @@ namespace StbSharp
                 {
                     for (int y = 0; (y) < (h); ++y)
                     {
+                        s.Cancellation.ThrowIfCancellationRequested();
                         s.ReadBytes(pixelRow, y * stride);
 
                         int filter_type = 0;
@@ -799,7 +818,7 @@ namespace StbSharp
                         {
                             filter_type = (int)force_filter;
                             stbiw__encode_png_line(
-                                pixelRowPtr, (stride), (w), (h), (y), (n), force_filter, line_buffer);
+                                s, pixelRowPtr, (stride), (w), (h), (y), (n), force_filter, line_buffer);
                         }
                         else
                         {
@@ -810,7 +829,7 @@ namespace StbSharp
                             for (filter_type = 0; (filter_type) < (5); filter_type++)
                             {
                                 stbiw__encode_png_line(
-                                    pixelRowPtr, (stride), (w), (h), (y), (n), (filter_type), line_buffer);
+                                    s, pixelRowPtr, (stride), (w), (h), (y), (n), (filter_type), line_buffer);
 
                                 est = 0;
                                 for (i = 0; (i) < stride; ++i)
@@ -826,10 +845,12 @@ namespace StbSharp
                             if (filter_type != best_filter)
                             {
                                 stbiw__encode_png_line(
-                                    pixelRowPtr, (stride), (w), (h), (y), (n), (best_filter), line_buffer);
+                                    s, pixelRowPtr, (stride), (w), (h), (y), (n), (best_filter), line_buffer);
                                 filter_type = (int)(best_filter);
                             }
                         }
+
+                        s.Cancellation.ThrowIfCancellationRequested();
 
                         filt[y * (stride + 1)] = (byte)filter_type;
                         CRuntime.memcpy(filt + y * (stride + 1) + 1, line_buffer, (ulong)(stride));
@@ -869,7 +890,9 @@ namespace StbSharp
                 }
 
                 var filtSpan = new ReadOnlySpan<byte>(filt, filtLength);
-                compressed = zlib_deflate_compress(filtSpan, level, weightedProgress);
+                compressed = zlib_deflate_compress(filtSpan, level, s.Cancellation, weightedProgress);
+
+                s.Cancellation.ThrowIfCancellationRequested();
                 if (compressed == null)
                     return false;
             }
@@ -925,6 +948,9 @@ namespace StbSharp
 
                 // TODO: write multiple IDAT chunks instead of one large to lower memory usage,
                 //       this requires quite a lot of work as the encoding needs to be redesigned
+                //       as it currently encodes one line at the time
+
+                s.Cancellation.ThrowIfCancellationRequested();
 
                 #region IDAT chunk
 
@@ -935,28 +961,24 @@ namespace StbSharp
                 pos = 0;
 
                 var compressedSpan = new Span<byte>((void*)compressed.Pointer, compressed.Length);
-                if (s.Progress != null)
+                int written = 0;
+                while (written < compressed.Length)
                 {
-                    int written = 0;
-                    while (written < compressed.Length)
-                    {
-                        int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Length);
-                        s.Write(s, compressedSpan.Slice(written, sliceLength));
+                    s.Cancellation.ThrowIfCancellationRequested();
 
-                        written += sliceLength;
-                        s.Progress(written / (double)compressed.Length * 0.01 + 0.99);
-                    }
-                }
-                else
-                {
-                    // skip some overhead if the progress callback is null
-                    s.Write(s, compressedSpan);
+                    int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Length);
+                    s.Write(s, compressedSpan.Slice(written, sliceLength));
+
+                    written += sliceLength;
+                    s.Progress?.Invoke(written / (double)compressed.Length * 0.01 + 0.99);
                 }
 
                 datChunk.SlurpData(compressedSpan);
                 datChunk.WriteFooter(tmp, ref pos);
 
                 #endregion
+
+                s.Cancellation.ThrowIfCancellationRequested();
 
                 #region IEND chunk
 
@@ -967,6 +989,8 @@ namespace StbSharp
                 s.Write(s, tmp.Slice(0, pos));
 
                 #endregion
+
+                s.Cancellation.ThrowIfCancellationRequested();
 
                 return true;
             }
@@ -1055,9 +1079,11 @@ namespace StbSharp
         #endregion
 
         public static void stbiw__encode_png_line(
-            byte* pixels, int stride_bytes, int width, int height, int y,
-            int n, int filter_type, sbyte* line_buffer)
+            in WriteContext s, byte* pixels, int stride_bytes, int width, int height,
+            int y, int n, int filter_type, sbyte* line_buffer)
         {
+            s.Cancellation.ThrowIfCancellationRequested();
+
             int* mapping = stackalloc int[5];
             mapping[0] = 0;
             mapping[1] = 1;
@@ -1078,11 +1104,14 @@ namespace StbSharp
             int type = (int)(mymap[filter_type]);
             byte* z = pixels; // + stride_bytes * ((stbi__flip_vertically_on_write) != 0 ? height - 1 - y : y);
             int signed_stride = (int)((stbi__flip_vertically_on_write) != 0 ? -stride_bytes : stride_bytes);
+            
             if ((type) == 0)
             {
                 CRuntime.memcpy(line_buffer, z, (ulong)(stride));
                 return;
             }
+
+            s.Cancellation.ThrowIfCancellationRequested();
 
             i = 0;
             switch (type)
@@ -1112,6 +1141,8 @@ namespace StbSharp
                         line_buffer[i] = ((sbyte)(z[i] - CRuntime.Paeth32(0, z[i - signed_stride], 0)));
                     break;
             }
+
+            s.Cancellation.ThrowIfCancellationRequested();
 
             i = n;
             switch (type)

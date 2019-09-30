@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 
 namespace StbSharp
 {
@@ -23,6 +24,7 @@ namespace StbSharp
             public readonly int Comp;
 
             public readonly Stream Output;
+            public readonly CancellationToken Cancellation;
             public readonly byte[] WriteBuffer;
             public readonly byte[] ScratchBuffer;
 
@@ -35,6 +37,7 @@ namespace StbSharp
                 int height,
                 int comp,
                 Stream output,
+                CancellationToken cancellation,
                 byte[] writeBuffer,
                 byte[] scratchBuffer)
             {
@@ -42,11 +45,13 @@ namespace StbSharp
                 ReadBytes = readBytePixels;
                 ReadFloats = readFloatPixels;
                 Progress = progressCallback;
+
                 Width = width;
                 Height = height;
                 Comp = comp;
 
                 Output = output;
+                Cancellation = cancellation;
                 WriteBuffer = writeBuffer;
                 ScratchBuffer = scratchBuffer;
             }
@@ -59,12 +64,13 @@ namespace StbSharp
                 int height,
                 int comp,
                 Stream output,
+                CancellationToken cancellation,
                 byte[] writeBuffer,
                 byte[] scratchBuffer) :
                 this(
                     readBytePixels, readFloatPixels, DefaultWrite, progressCallback,
                     width, height, comp,
-                    output, writeBuffer, scratchBuffer)
+                    output, cancellation, writeBuffer, scratchBuffer)
             {
             }
 
