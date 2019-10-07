@@ -65,7 +65,7 @@ namespace StbSharp
                     }
                 }
 
-                uint adlerSum = calc_adler32_checksum(data, cancellation);
+                uint adlerSum = Adler32.Calculate(data, cancellation);
                 byte[] adlerBytes = BitConverter.GetBytes(adlerSum);
                 adlerBytes.AsSpan().Reverse();
                 output.Write(adlerBytes, 0, adlerBytes.Length);
