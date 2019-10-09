@@ -2,9 +2,9 @@ using System;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
-        public static unsafe class Tga
+        public static class Tga
         {
             public static int WriteCore(in WriteContext s, bool writeRLE)
             {
@@ -40,13 +40,9 @@ namespace StbSharp
                     };
                     WriteHelpers.WriteFormat(s, "111 221 2222 11", headers);
 
-                    byte* rowPixel = stackalloc byte[comp];
-                    byte* beginPixel = stackalloc byte[comp];
-                    byte* prevPixel = stackalloc byte[comp];
-
-                    var rowPixelSpan = new Span<byte>(rowPixel, comp);
-                    var beginPixelSpan = new Span<byte>(beginPixel, comp);
-                    var prevPixelSpan = new Span<byte>(prevPixel, comp);
+                    Span<byte> rowPixel = stackalloc byte[comp];
+                    Span<byte> beginPixel = stackalloc byte[comp];
+                    Span<byte> prevPixel = stackalloc byte[comp];
 
                     Span<byte> headerBuffer = stackalloc byte[1];
                     Span<byte> outputBuffer = stackalloc byte[4];
@@ -58,26 +54,26 @@ namespace StbSharp
                         for (i = 0; i < x; i += len)
                         {
                             int beginOffset = rowOffset + i * comp;
-                            s.ReadBytes(beginPixelSpan, beginOffset);
+                            s.ReadBytes(beginPixel, beginOffset);
 
                             int diff = 1;
                             len = 1;
                             if (i < (x - 1))
                             {
                                 ++len;
-                                s.ReadBytes(rowPixelSpan, rowOffset + (i + 1) * comp);
-                                diff = CRuntime.memcmp(beginPixel, rowPixel, (ulong)comp);
+                                s.ReadBytes(rowPixel, rowOffset + (i + 1) * comp);
+                                diff = CRuntime.memcmp(beginPixel, rowPixel, comp);
                                 if (diff != 0)
                                 {
-                                    beginPixelSpan.CopyTo(prevPixelSpan);
+                                    beginPixel.CopyTo(prevPixel);
                                     int prevOffset = beginOffset;
 
                                     for (k = i + 2; (k < x) && (len < 128); ++k)
                                     {
-                                        s.ReadBytes(rowPixelSpan, rowOffset + k * comp);
-                                        if (CRuntime.memcmp(prevPixel, rowPixel, (ulong)comp) != 0)
+                                        s.ReadBytes(rowPixel, rowOffset + k * comp);
+                                        if (CRuntime.memcmp(prevPixel, rowPixel, comp) != 0)
                                         {
-                                            s.ReadBytes(prevPixelSpan, prevOffset);
+                                            s.ReadBytes(prevPixel, prevOffset);
                                             prevOffset += comp;
                                             ++len;
                                         }
@@ -92,8 +88,8 @@ namespace StbSharp
                                 {
                                     for (k = i + 2; (k < x) && (len < 128); ++k)
                                     {
-                                        s.ReadBytes(rowPixelSpan, rowOffset + k * comp);
-                                        if (CRuntime.memcmp(beginPixel, rowPixel, (ulong)comp) == 0)
+                                        s.ReadBytes(rowPixel, rowOffset + k * comp);
+                                        if (CRuntime.memcmp(beginPixel, rowPixel, comp) == 0)
                                             ++len;
                                         else
                                             break;
@@ -108,8 +104,8 @@ namespace StbSharp
 
                                 for (k = 0; k < len; ++k)
                                 {
-                                    s.ReadBytes(beginPixelSpan, beginOffset + k * comp);
-                                    int pixlen = WriteHelpers.WritePixel(true, has_alpha, false, beginPixelSpan, outputBuffer);
+                                    s.ReadBytes(beginPixel, beginOffset + k * comp);
+                                    int pixlen = WriteHelpers.WritePixel(true, has_alpha, false, beginPixel, outputBuffer);
                                     s.Write(s, outputBuffer.Slice(0, pixlen));
                                 }
                             }
@@ -118,7 +114,7 @@ namespace StbSharp
                                 headerBuffer[0] = (byte)((len - 129) & 0xff);
                                 s.Write(s, headerBuffer);
 
-                                int pixlen = WriteHelpers.WritePixel(true, has_alpha, false, beginPixelSpan, outputBuffer);
+                                int pixlen = WriteHelpers.WritePixel(true, has_alpha, false, beginPixel, outputBuffer);
                                 s.Write(s, outputBuffer.Slice(0, pixlen));
                             }
                         }

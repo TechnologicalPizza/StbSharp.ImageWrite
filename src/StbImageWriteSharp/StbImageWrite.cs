@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
         public delegate void ReadBytePixelsCallback(Span<byte> destination, int dataOffset);
         public delegate void ReadFloatPixelsCallback(Span<float> destination, int dataOffset);
@@ -102,7 +102,7 @@ namespace StbSharp
             }
         }
 
-        public ref struct ScratchBuffer
+        public unsafe ref struct ScratchBuffer
         {
             private byte* _ptr;
             private Span<byte> _span;

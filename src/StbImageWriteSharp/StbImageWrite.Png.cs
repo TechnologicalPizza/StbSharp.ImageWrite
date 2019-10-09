@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
         public static unsafe class Png
         {
@@ -19,6 +19,8 @@ namespace StbSharp
             {
                 ZlibHeader.ConvertLevel(level); // acts as a parameter check
 
+                s.Cancellation.ThrowIfCancellationRequested();
+
                 int w = s.Width;
                 int h = s.Height;
                 int n = s.Comp;
@@ -28,14 +30,12 @@ namespace StbSharp
                 if (force_filter >= 5)
                     force_filter = -1;
 
-                s.Cancellation.ThrowIfCancellationRequested();
-
                 int filtLength = (stride + 1) * h;
                 byte* filt = (byte*)CRuntime.malloc(filtLength);
                 if (filt == null)
                     return false;
 
-                sbyte* line_buffer = (sbyte*)CRuntime.malloc((ulong)stride);
+                sbyte* line_buffer = (sbyte*)CRuntime.malloc(stride);
                 if (line_buffer == null)
                 {
                     CRuntime.free(filt);
@@ -49,25 +49,24 @@ namespace StbSharp
                 double progressStepCount = pixels / (1000 * Math.Log(pixels, 2));
                 double progressStepSize = Math.Max(1, pixels / progressStepCount);
 
-                ScratchBuffer pixelRowScratch = s.GetScratch(stride);
+                ScratchBuffer rowScratch = s.GetScratch(stride);
                 try
                 {
-                    Span<byte> pixelRow = pixelRowScratch.AsSpan();
-                    fixed (byte* pixelRowPtr = &MemoryMarshal.GetReference(pixelRow))
+                    Span<byte> row = rowScratch.AsSpan();
+                    fixed (byte* rowPtr = &MemoryMarshal.GetReference(row))
                     {
                         for (int y = 0; y < h; ++y)
                         {
                             s.Cancellation.ThrowIfCancellationRequested();
 
                             int dataOffset = stride * (FlipVerticallyOnWrite != 0 ? h - 1 - y : y);
-                            s.ReadBytes(pixelRow, dataOffset);
+                            s.ReadBytes(row, dataOffset);
 
                             int filter_type = 0;
                             if (force_filter > (-1))
                             {
                                 filter_type = force_filter;
-                                EncodeLine(
-                                    s, pixelRowPtr, stride, w, y, n, force_filter, line_buffer);
+                                EncodeLine(s, rowPtr, stride, w, y, n, force_filter, line_buffer);
                             }
                             else
                             {
@@ -77,8 +76,7 @@ namespace StbSharp
                                 int i = 0;
                                 for (filter_type = 0; filter_type < 5; filter_type++)
                                 {
-                                    EncodeLine(
-                                        s, pixelRowPtr, stride, w, y, n, filter_type, line_buffer);
+                                    EncodeLine(s, rowPtr, stride, w, y, n, filter_type, line_buffer);
 
                                     est = 0;
                                     for (i = 0; i < stride; ++i)
@@ -93,8 +91,7 @@ namespace StbSharp
 
                                 if (filter_type != best_filter)
                                 {
-                                    EncodeLine(
-                                        s, pixelRowPtr, stride, w, y, n, best_filter, line_buffer);
+                                    EncodeLine(s, rowPtr, stride, w, y, n, best_filter, line_buffer);
                                     filter_type = best_filter;
                                 }
                             }
@@ -102,7 +99,7 @@ namespace StbSharp
                             s.Cancellation.ThrowIfCancellationRequested();
 
                             filt[y * (stride + 1)] = (byte)filter_type;
-                            CRuntime.memcpy(filt + y * (stride + 1) + 1, line_buffer, (ulong)stride);
+                            CRuntime.memcpy(filt + y * (stride + 1) + 1, line_buffer, stride);
 
                             // TODO: tidy this up a notch so it's easier to reuse in other implementations
                             if (s.Progress != null)
@@ -125,8 +122,10 @@ namespace StbSharp
                 finally
                 {
                     CRuntime.free(line_buffer);
-                    pixelRowScratch.Dispose();
+                    rowScratch.Dispose();
                 }
+
+                s.Cancellation.ThrowIfCancellationRequested();
 
                 // TODO: redesign chunk encoding to write partial chunks instead of one large
                 IMemoryResult compressed;
@@ -228,8 +227,6 @@ namespace StbSharp
 
                     #endregion
 
-                    s.Cancellation.ThrowIfCancellationRequested();
-
                     #region IEND chunk
 
                     var endChunk = new PngChunk(0, "IEND");
@@ -245,7 +242,6 @@ namespace StbSharp
                 finally
                 {
                     compressed.Dispose();
-                    s.Cancellation.ThrowIfCancellationRequested();
                 }
             }
 
@@ -356,11 +352,9 @@ namespace StbSharp
 
                 if (type == 0)
                 {
-                    CRuntime.memcpy(line_buffer, z, (ulong)stride);
+                    CRuntime.memcpy(line_buffer, z, stride);
                     return;
                 }
-
-                s.Cancellation.ThrowIfCancellationRequested();
 
                 i = 0;
                 switch (type)
@@ -390,8 +384,6 @@ namespace StbSharp
                             line_buffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(0, z[i - signed_stride], 0));
                         break;
                 }
-
-                s.Cancellation.ThrowIfCancellationRequested();
 
                 i = n;
                 switch (type)

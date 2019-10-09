@@ -2,9 +2,9 @@ using System;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
-        public static unsafe class WriteHelpers
+        public static class WriteHelpers
         {
             public static void GetBytes(uint value, Span<byte> output)
             {

@@ -3,11 +3,11 @@ using System.Text;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
-        public static unsafe class Hdr
+        public static class Hdr
         {
-            private static readonly byte[] stbi_hdr_radiance_header =
+            public static readonly ReadOnlyMemory<byte> FileHeader =
                 Encoding.UTF8.GetBytes("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n");
 
             public static int stbi_write_hdr_core(in WriteContext s)
@@ -17,7 +17,7 @@ namespace StbSharp
                 if (y <= 0 || x <= 0)
                     return 0;
 
-                s.Write(s, stbi_hdr_radiance_header);
+                s.Write(s, FileHeader.Span);
 
                 byte[] bytes = Encoding.UTF8.GetBytes(string.Format(
                     "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", y.ToString(), x.ToString()));
@@ -30,7 +30,7 @@ namespace StbSharp
                         scratch = s.GetScratch(x * 4);
 
                     for (int line = 0; line < y; line++)
-                        stbiw__write_hdr_scanline(s, line, scratch);
+                        WriteHdrScanline(s, line, scratch);
 
                     return 1;
                 }
@@ -40,7 +40,7 @@ namespace StbSharp
                 }
             }
 
-            public static void stbiw__linear_to_rgbe(Span<byte> rgbe, float* linear)
+            public static void LinearToRgbe(Span<byte> output, ReadOnlySpan<float> linear)
             {
                 float maxcomp = linear[0] > (linear[1] > linear[2]
                     ? linear[1] : linear[2])
@@ -49,19 +49,19 @@ namespace StbSharp
                 if (maxcomp < 1e-32f)
                 {
                     for (int i = 0; i < 4; i++)
-                        rgbe[i] = 0;
+                        output[i] = 0;
                 }
                 else
                 {
                     float normalize = (float)(CRuntime.frexp(maxcomp, out int exponent) * 256.0 / maxcomp);
-                    rgbe[0] = (byte)(linear[0] * normalize);
-                    rgbe[1] = (byte)(linear[1] * normalize);
-                    rgbe[2] = (byte)(linear[2] * normalize);
-                    rgbe[3] = (byte)(exponent + 128);
+                    output[0] = (byte)(linear[0] * normalize);
+                    output[1] = (byte)(linear[1] * normalize);
+                    output[2] = (byte)(linear[2] * normalize);
+                    output[3] = (byte)(exponent + 128);
                 }
             }
 
-            public static void stbiw__write_run_data(in WriteContext s, int length, byte databyte)
+            public static void WriteRunData(in WriteContext s, int length, byte databyte)
             {
                 Span<byte> tmp = stackalloc byte[1];
                 tmp[0] = (byte)((length + 128) & 0xff); // lengthbyte
@@ -71,7 +71,7 @@ namespace StbSharp
                 s.Write(s, tmp);
             }
 
-            public static void stbiw__write_dump_data(in WriteContext s, Span<byte> data)
+            public static void WriteDumpData(in WriteContext s, ReadOnlySpan<byte> data)
             {
                 Span<byte> tmp = stackalloc byte[1];
                 tmp[0] = (byte)((data.Length) & 0xff); // lengthbyte
@@ -80,7 +80,7 @@ namespace StbSharp
                 s.Write(s, data);
             }
 
-            public static void stbiw__write_hdr_scanline(in WriteContext s, int y, ScratchBuffer scratch)
+            public static void WriteHdrScanline(in WriteContext s, int y, ScratchBuffer scratch)
             {
                 int w = s.Width;
                 int n = s.Comp;
@@ -93,7 +93,7 @@ namespace StbSharp
                 scanlineheader[3] = (byte)(w & 0x00ff);
 
                 Span<byte> rgbe = stackalloc byte[4];
-                float* linear = stackalloc float[3];
+                Span<float> linear = stackalloc float[3];
 
                 Span<float> scanline = stackalloc float[n];
                 if (w < 8 || w >= s.ScratchBuffer.Length / 4)
@@ -116,7 +116,7 @@ namespace StbSharp
                                 break;
                         }
 
-                        stbiw__linear_to_rgbe(rgbe, linear);
+                        LinearToRgbe(rgbe, linear);
                         s.Write(s, rgbe);
                     }
                 }
@@ -141,7 +141,7 @@ namespace StbSharp
                                 break;
                         }
 
-                        stbiw__linear_to_rgbe(rgbe, linear);
+                        LinearToRgbe(rgbe, linear);
                         scratchSpan[x + w * 0] = rgbe[0];
                         scratchSpan[x + w * 1] = rgbe[1];
                         scratchSpan[x + w * 2] = rgbe[2];
@@ -174,7 +174,7 @@ namespace StbSharp
                                 int len = r - x;
                                 if (len > 128)
                                     len = 128;
-                                stbiw__write_dump_data(s, comp.Slice(x, len));
+                                WriteDumpData(s, comp.Slice(x, len));
                                 x += len;
                             }
 
@@ -188,7 +188,7 @@ namespace StbSharp
                                     int len = r - x;
                                     if (len > 127)
                                         len = 127;
-                                    stbiw__write_run_data(s, len, comp[x]);
+                                    WriteRunData(s, len, comp[x]);
                                     x += len;
                                 }
                             }

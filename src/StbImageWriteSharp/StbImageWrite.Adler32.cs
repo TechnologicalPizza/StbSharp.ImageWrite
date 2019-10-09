@@ -1,15 +1,13 @@
 using System;
-using System.Threading;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
-        public static unsafe class Adler32 
+        public static class Adler32 
         {
-            // TODO: copy adler32 implementation from zlib library (as it's should be faster)
-            public static uint Calculate(
-                ReadOnlySpan<byte> data, CancellationToken cancellation)
+            // TODO: copy adler32 implementation from zlib library (it should be faster)
+            public static uint Calculate(ReadOnlySpan<byte> data)
             {
                 uint s1 = 1;
                 uint s2 = 0;
@@ -19,8 +17,6 @@ namespace StbSharp
 
                 while (j < data.Length)
                 {
-                    cancellation.ThrowIfCancellationRequested();
-
                     for (int i = 0; i < blocklen; ++i)
                     {
                         s1 += data[j + i];

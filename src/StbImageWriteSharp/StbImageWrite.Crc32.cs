@@ -2,9 +2,9 @@ using System;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
-        public static unsafe class Crc32
+        public static class Crc32
         {
             #region CRC Table
 

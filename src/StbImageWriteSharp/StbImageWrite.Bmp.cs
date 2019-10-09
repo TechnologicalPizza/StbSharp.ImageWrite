@@ -2,9 +2,9 @@ using System;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
-        public static unsafe class Bmp
+        public static class Bmp
         {
             public static int WriteCore(in WriteContext s)
             {
@@ -24,14 +24,14 @@ namespace StbSharp
                 int compression = s.Comp == 4 ? 3 : 0; // 3 == bitfields | 0 == no compression
                 object[] headers = new object[]
                 {
-                (int)'B', (int)'M', fileSize, 0, 0, dataOffset, // BMP header
-                dibHeaderLen, s.Width, s.Height, 1, bitDepth, compression, dataSize, 0, 0, 0, 0, // DIB header
+                    (int)'B', (int)'M', fileSize, 0, 0, dataOffset, // BMP header
+                    dibHeaderLen, s.Width, s.Height, 1, bitDepth, compression, dataSize, 0, 0, 0, 0, // DIB header
 
-                // needed for 32bit bitmaps
-                0x00ff0000, 0x0000ff00, 0x000000ff, unchecked((int)0xff000000), // RGBA masks
-                0x206E6957, // little-endian (value equal to string "Win ")
-                0, 0, 0, 0, 0, 0, 0, 0, 0, // colorspace endpoints (unused)
-                0, 0, 0 // RGB gamma (unused)
+                    // needed for 32bit bitmaps
+                    0x00ff0000, 0x0000ff00, 0x000000ff, unchecked((int)0xff000000), // RGBA masks
+                    0x206E6957, // little-endian (value equal to string "Win ")
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, // colorspace endpoints (unused)
+                    0, 0, 0 // RGB gamma (unused)
                 };
 
                 int alpha_dir = s.Comp == 4 ? 1 : 0;

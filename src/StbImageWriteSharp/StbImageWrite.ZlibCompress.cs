@@ -6,9 +6,9 @@ using System.Threading;
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
-        public static unsafe class ZlibCompress
+        public static class ZlibCompress
         {
             /// <summary>
             /// Delegate for a zlib deflate (RFC 1951) compression implementation.
@@ -29,8 +29,10 @@ namespace StbSharp
             /// <para>Can be replaced by assigning <see cref="CustomDeflateCompress"/>.</para>
             /// </summary>
             public static IMemoryResult DeflateCompress(
-                ReadOnlySpan<byte> data, CompressionLevel level,
-                CancellationToken cancellation, WriteProgressCallback onProgress)
+                ReadOnlySpan<byte> data,
+                CompressionLevel level,
+                CancellationToken cancellation, 
+                WriteProgressCallback onProgress)
             {
                 if (CustomDeflateCompress != null)
                     return CustomDeflateCompress.Invoke(data, level, cancellation, onProgress);
@@ -43,32 +45,30 @@ namespace StbSharp
                 output.WriteByte(header.GetFLG());
 
                 byte[] copyBuffer = new byte[1024 * 8];
-                fixed (byte* dataPtr = &MemoryMarshal.GetReference(data))
+                cancellation.ThrowIfCancellationRequested();
+
+                using (var deflate = new DeflateStream(output, level, leaveOpen: true))
                 {
-                    cancellation.ThrowIfCancellationRequested();
-
-                    using (var deflate = new DeflateStream(output, level, leaveOpen: true))
-                    using (var source = new UnmanagedMemoryStream(dataPtr, data.Length))
+                    int totalRead = 0;
+                    while (totalRead < data.Length)
                     {
-                        // we don't want to use Stream.CopyTo as we want progress reporting
-                        int total = 0;
-                        int read;
-                        while ((read = source.Read(copyBuffer, 0, copyBuffer.Length)) != 0)
-                        {
-                            cancellation.ThrowIfCancellationRequested();
+                        cancellation.ThrowIfCancellationRequested();
 
-                            deflate.Write(copyBuffer, 0, read);
+                        int count = Math.Min(data.Length - totalRead, copyBuffer.Length);
+                        data.Slice(totalRead, count).CopyTo(copyBuffer);
+                        deflate.Write(copyBuffer, 0, count);
 
-                            total += read;
-                            onProgress?.Invoke(total / (double)data.Length);
-                        }
+                        totalRead += count;
+                        onProgress?.Invoke(totalRead / (double)data.Length);
                     }
                 }
 
-                uint adlerSum = Adler32.Calculate(data, cancellation);
+                uint adlerSum = Adler32.Calculate(data);
                 byte[] adlerBytes = BitConverter.GetBytes(adlerSum);
                 adlerBytes.AsSpan().Reverse();
                 output.Write(adlerBytes, 0, adlerBytes.Length);
+
+                cancellation.ThrowIfCancellationRequested();
 
                 byte[] result = output.GetBuffer();
                 var gcHandle = GCHandle.Alloc(result, GCHandleType.Pinned);

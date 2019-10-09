@@ -1,7 +1,7 @@
 
 namespace StbSharp
 {
-    public static unsafe partial class StbImageWrite
+    public static partial class StbImageWrite
     {
         public static partial class Jpg
         {
