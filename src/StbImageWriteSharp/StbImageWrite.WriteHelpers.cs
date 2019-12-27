@@ -73,18 +73,18 @@ namespace StbSharp
             }
 
             public static int WritePixel(
-                bool flip_rgb, int alpha_dir, bool expand_mono, Span<byte> pixel, Span<byte> output)
+                bool flipRgb, int alphaDir, bool expandMono, Span<byte> pixel, Span<byte> output)
             {
                 int offset = 0;
 
-                if (alpha_dir < 0)
+                if (alphaDir < 0)
                     output[offset++] = pixel[pixel.Length - 1];
 
                 switch (pixel.Length)
                 {
                     case 1:
                     case 2:
-                        if (expand_mono)
+                        if (expandMono)
                         {
                             byte mono = pixel[0];
                             for (int i = 0; i < 3; i++)
@@ -99,7 +99,7 @@ namespace StbSharp
                     case 3:
                     case 4:
                         int start = offset;
-                        if ((pixel.Length == 4) && (alpha_dir == 0))
+                        if ((pixel.Length == 4) && (alphaDir == 0))
                         {
                             output[offset++] = (byte)(255 + (pixel[0] - 255) * pixel[3] / 255);
                             output[offset++] = (byte)(pixel[1] * pixel[3] / 255);
@@ -111,7 +111,7 @@ namespace StbSharp
                                 output[offset++] = pixel[i];
                         }
 
-                        if (flip_rgb)
+                        if (flipRgb)
                         {
                             byte first = output[start];
                             output[start] = output[start + 2];
@@ -120,49 +120,49 @@ namespace StbSharp
                         break;
                 }
 
-                if (alpha_dir > 0)
+                if (alphaDir > 0)
                     output[offset++] = pixel[pixel.Length - 1];
 
                 return offset;
             }
 
             public static void WritePixels(
-                in WriteContext s, bool flip_rgb, int vdir,
-                int alpha_dir, int scanline_pad, bool expand_mono)
+                in WriteContext s, bool flipRgb, int vdir,
+                int alphaDir, int scanlinePad, bool expandMono)
             {
-                if (scanline_pad < 0 || scanline_pad > 4)
-                    throw new ArgumentOutOfRangeException(nameof(scanline_pad));
+                if (scanlinePad < 0 || scanlinePad > 4)
+                    throw new ArgumentOutOfRangeException(nameof(scanlinePad));
 
                 if (s.Height <= 0)
                     return;
 
                 int i;
                 int j;
-                int j_end;
+                int jEnd;
                 if (vdir < 0)
                 {
-                    j_end = -1;
+                    jEnd = -1;
                     j = s.Height - 1;
                 }
                 else
                 {
-                    j_end = s.Height;
+                    jEnd = s.Height;
                     j = 0;
                 }
 
                 int x = s.Width;
-                int comp = s.Comp;
+                int comp = s.Components;
                 int stride = x * comp;
 
-                int scratchSize = stride + scanline_pad;
+                int scratchSize = stride + scanlinePad;
                 ScratchBuffer scratch = s.GetScratch(scratchSize);
                 try
                 {
                     Span<byte> scratchSpan = scratch.AsSpan(0, scratchSize);
-                    Span<byte> scanlinePadSpan = scratchSpan.Slice(stride, scanline_pad);
+                    Span<byte> scanlinePadSpan = scratchSpan.Slice(stride, scanlinePad);
                     scanlinePadSpan.Fill(0);
 
-                    for (; j != j_end; j += vdir)
+                    for (; j != jEnd; j += vdir)
                     {
                         s.ReadBytes(scratchSpan, j * stride);
                         int offset = 0;
@@ -170,7 +170,7 @@ namespace StbSharp
                         {
                             var pixel = scratchSpan.Slice(i * comp, comp);
                             var output = scratchSpan.Slice(offset, comp);
-                            offset += WritePixel(flip_rgb, alpha_dir, expand_mono, pixel, output);
+                            offset += WritePixel(flipRgb, alphaDir, expandMono, pixel, output);
                         }
 
                         if (offset != stride)
@@ -192,14 +192,14 @@ namespace StbSharp
             /// Used for writing raw data with headers.
             /// </summary>
             public static int Outfile(
-                in WriteContext s, bool flip_rgb, int vdir,
-                bool expand_mono, int alpha_dir, int pad, string fmt, Span<object> v)
+                in WriteContext s, bool flipRgb, int vdir,
+                bool expandMono, int alphaDir, int pad, string fmt, Span<object> v)
             {
                 if (s.Width <= 0 || s.Height <= 0)
                     return 0;
 
                 WriteFormat(s, fmt, v);
-                WritePixels(s, flip_rgb, vdir, alpha_dir, pad, expand_mono);
+                WritePixels(s, flipRgb, vdir, alphaDir, pad, expandMono);
                 return 1;
             }
         }

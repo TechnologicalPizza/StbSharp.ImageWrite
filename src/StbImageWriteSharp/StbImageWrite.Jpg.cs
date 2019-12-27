@@ -184,7 +184,7 @@ namespace StbSharp
             {
                 int width = s.Width;
                 int height = s.Height;
-                int comp = s.Comp;
+                int comp = s.Components;
 
                 if ((s.ReadBytes == null) || (width == 0) || (height == 0) || (comp > 4) || (comp < 1))
                     return 0;
@@ -253,23 +253,23 @@ namespace StbSharp
                     s.Write(s, UVTable);
                     s.Write(s, head1);
 
-                    s.Write(s, std_dc_luminance_nrcodes.AsSpan(1, std_dc_chrominance_nrcodes.Length - 1));
-                    s.Write(s, std_dc_luminance_values.AsSpan(0, std_dc_chrominance_values.Length));
+                    s.Write(s, std_DcLuminanceNrcodes.AsSpan(1, std_DcChrominanceNrcodes.Length - 1));
+                    s.Write(s, std_DcLuminanceValues.AsSpan(0, std_DcChrominanceValues.Length));
 
                     WriteHelpers.WriteChar(s, 0x10);
 
-                    s.Write(s, std_ac_luminance_nrcodes.AsSpan(1));
-                    s.Write(s, std_ac_luminance_values);
+                    s.Write(s, std_AcLuminanceNrcodes.AsSpan(1));
+                    s.Write(s, std_AcLuminanceValues);
 
                     WriteHelpers.WriteChar(s, 1);
 
-                    s.Write(s, std_dc_chrominance_nrcodes.AsSpan(1));
-                    s.Write(s, std_dc_chrominance_values);
+                    s.Write(s, std_DcChrominanceNrcodes.AsSpan(1));
+                    s.Write(s, std_DcChrominanceValues);
 
                     WriteHelpers.WriteChar(s, 0x11);
 
-                    s.Write(s, std_ac_chrominance_nrcodes.AsSpan(1));
-                    s.Write(s, std_ac_chrominance_values);
+                    s.Write(s, std_AcChrominanceNrcodes.AsSpan(1));
+                    s.Write(s, std_AcChrominanceValues);
 
                     s.Write(s, head2);
                 }

@@ -23,22 +23,22 @@ namespace StbSharp
 
                 int w = s.Width;
                 int h = s.Height;
-                int n = s.Comp;
+                int n = s.Components;
                 int stride = w * n;
 
-                int force_filter = WriteForceFilter;
-                if (force_filter >= 5)
-                    force_filter = -1;
+                int forceFilter = WriteForceFilter;
+                if (forceFilter >= 5)
+                    forceFilter = -1;
 
                 int filtLength = (stride + 1) * h;
-                byte* filt = (byte*)CRuntime.malloc(filtLength);
+                byte* filt = (byte*)CRuntime.MAlloc(filtLength);
                 if (filt == null)
                     return false;
 
-                sbyte* line_buffer = (sbyte*)CRuntime.malloc(stride);
-                if (line_buffer == null)
+                sbyte* lineBuffer = (sbyte*)CRuntime.MAlloc(stride);
+                if (lineBuffer == null)
                 {
-                    CRuntime.free(filt);
+                    CRuntime.Free(filt);
                     return false;
                 }
 
@@ -62,44 +62,46 @@ namespace StbSharp
                             int dataOffset = stride * (FlipVerticallyOnWrite != 0 ? h - 1 - y : y);
                             s.ReadBytes(row, dataOffset);
 
-                            int filter_type = 0;
-                            if (force_filter > (-1))
+                            int filterType = 0;
+                            if (forceFilter > (-1))
                             {
-                                filter_type = force_filter;
-                                EncodeLine(s, rowPtr, stride, w, y, n, force_filter, line_buffer);
+                                filterType = forceFilter;
+                                EncodeLine(rowPtr, stride, w, y, n, forceFilter, lineBuffer);
                             }
                             else
                             {
-                                int best_filter = 0;
-                                int best_filter_val = 0x7fffffff;
+                                int bestFilter = 0;
+                                int bestFilterValue = 0x7fffffff;
                                 int est = 0;
                                 int i = 0;
-                                for (filter_type = 0; filter_type < 5; filter_type++)
+                                for (filterType = 0; filterType < 5; filterType++)
                                 {
-                                    EncodeLine(s, rowPtr, stride, w, y, n, filter_type, line_buffer);
+                                    EncodeLine(rowPtr, stride, w, y, n, filterType, lineBuffer);
 
                                     est = 0;
                                     for (i = 0; i < stride; ++i)
-                                        est += CRuntime.FastAbs(line_buffer[i]);
+                                        est += CRuntime.FastAbs(lineBuffer[i]);
 
-                                    if (est < best_filter_val)
+                                    if (est < bestFilterValue)
                                     {
-                                        best_filter_val = est;
-                                        best_filter = filter_type;
+                                        bestFilterValue = est;
+                                        bestFilter = filterType;
                                     }
+
+                                    s.Cancellation.ThrowIfCancellationRequested();
                                 }
 
-                                if (filter_type != best_filter)
+                                if (filterType != bestFilter)
                                 {
-                                    EncodeLine(s, rowPtr, stride, w, y, n, best_filter, line_buffer);
-                                    filter_type = best_filter;
+                                    EncodeLine(rowPtr, stride, w, y, n, bestFilter, lineBuffer);
+                                    filterType = bestFilter;
                                 }
                             }
 
                             s.Cancellation.ThrowIfCancellationRequested();
 
-                            filt[y * (stride + 1)] = (byte)filter_type;
-                            CRuntime.memcpy(filt + y * (stride + 1) + 1, line_buffer, stride);
+                            filt[y * (stride + 1)] = (byte)filterType;
+                            CRuntime.MemCopy(filt + y * (stride + 1) + 1, lineBuffer, stride);
 
                             // TODO: tidy this up a notch so it's easier to reuse in other implementations
                             if (s.Progress != null)
@@ -116,12 +118,12 @@ namespace StbSharp
                 }
                 catch
                 {
-                    CRuntime.free(filt);
+                    CRuntime.Free(filt);
                     throw;
                 }
                 finally
                 {
-                    CRuntime.free(line_buffer);
+                    CRuntime.Free(lineBuffer);
                     rowScratch.Dispose();
                 }
 
@@ -146,14 +148,14 @@ namespace StbSharp
                 }
                 finally
                 {
-                    CRuntime.free(filt);
+                    CRuntime.Free(filt);
                     s.Cancellation.ThrowIfCancellationRequested();
                 }
 
                 try
                 {
-                    int* colorTypeMap = stackalloc int[5];
-                    colorTypeMap[0] = -1;
+                    Span<byte> colorTypeMap = stackalloc byte[5];
+                    colorTypeMap[0] = 255;
                     colorTypeMap[1] = 0;
                     colorTypeMap[2] = 4;
                     colorTypeMap[3] = 2;
@@ -181,15 +183,15 @@ namespace StbSharp
                     var hdrChunk = new PngChunk(13, "IHDR");
                     hdrChunk.WriteHeader(tmp, ref pos);
 
-                    hdrChunk.SlurpWriteUInt32((uint)w, tmp, ref pos); // width
-                    hdrChunk.SlurpWriteUInt32((uint)h, tmp, ref pos); // height
+                    hdrChunk.WriteUInt32((uint)w, tmp, ref pos); // width
+                    hdrChunk.WriteUInt32((uint)h, tmp, ref pos); // height
 
-                    byte colorType = (byte)(colorTypeMap[n] & 0xff);
-                    hdrChunk.SlurpWriteInt8(8, tmp, ref pos); // bit depth
-                    hdrChunk.SlurpWriteInt8(colorType, tmp, ref pos); // color type
-                    hdrChunk.SlurpWriteInt8(0, tmp, ref pos); // compression method
-                    hdrChunk.SlurpWriteInt8(0, tmp, ref pos); // filter method
-                    hdrChunk.SlurpWriteInt8(0, tmp, ref pos); // interlace method
+                    byte colorType = colorTypeMap[n];
+                    hdrChunk.WriteInt8(8, tmp, ref pos); // bit depth
+                    hdrChunk.WriteInt8(colorType, tmp, ref pos); // color type
+                    hdrChunk.WriteInt8(0, tmp, ref pos); // compression method
+                    hdrChunk.WriteInt8(0, tmp, ref pos); // filter method
+                    hdrChunk.WriteInt8(0, tmp, ref pos); // interlace method
 
                     hdrChunk.WriteFooter(tmp, ref pos);
 
@@ -197,7 +199,9 @@ namespace StbSharp
 
                     // TODO: write multiple IDAT chunks instead of one large to lower memory usage,
                     //       this requires quite a lot of work as the encoding needs to be redesigned
-                    //       as it currently encodes one line at the time
+                    //       as it currently encodes one line at the time, 
+                    //       encoding needs to happen "on demand"
+                    //       (instead of lines encode a specified amount of pixels)
 
                     s.Cancellation.ThrowIfCancellationRequested();
 
@@ -215,14 +219,14 @@ namespace StbSharp
                     {
                         s.Cancellation.ThrowIfCancellationRequested();
 
-                        int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Length);
+                        int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Count);
                         s.Write(s, compressedSpan.Slice(written, sliceLength));
 
                         written += sliceLength;
                         s.Progress?.Invoke(written / (double)compressed.Length * 0.01 + 0.99);
                     }
 
-                    datChunk.SlurpData(compressedSpan);
+                    datChunk.HashData(compressedSpan);
                     datChunk.WriteFooter(tmp, ref pos);
 
                     #endregion
@@ -269,6 +273,7 @@ namespace StbSharp
                         if (type[i] > byte.MaxValue)
                             throw new ArgumentException(
                                 nameof(type), "The character '" + type[i] + "' is invalid.");
+
                         u32TypeSpan[i] = (byte)type[i];
                     }
 
@@ -296,26 +301,26 @@ namespace StbSharp
 
                 #region Slurp
 
-                public void SlurpData(ReadOnlySpan<byte> data)
+                public void HashData(ReadOnlySpan<byte> data)
                 {
                     Crc = Crc32.Calculate(data, Crc);
                 }
 
-                private void SlurpWrite(Span<byte> span, int size, int position)
+                private void HashData(ReadOnlySpan<byte> span, int size, int position)
                 {
-                    SlurpData(span.Slice(position - size, size));
+                    HashData(span.Slice(position - size, size));
                 }
 
-                public void SlurpWriteUInt32(uint value, Span<byte> output, ref int position)
+                public void WriteUInt32(uint value, Span<byte> output, ref int position)
                 {
                     WriteHelpers.WriteUInt(value, output, ref position);
-                    SlurpWrite(output, sizeof(uint), position);
+                    HashData(output, sizeof(uint), position);
                 }
 
-                public void SlurpWriteInt8(byte value, Span<byte> output, ref int position)
+                public void WriteInt8(byte value, Span<byte> output, ref int position)
                 {
                     output[position++] = value;
-                    SlurpWrite(output, sizeof(byte), position);
+                    HashData(output, sizeof(byte), position);
                 }
 
                 #endregion
@@ -324,11 +329,9 @@ namespace StbSharp
             #endregion
 
             public static void EncodeLine(
-                in WriteContext s, byte* pixels, int stride_bytes, int width,
-                int y, int n, int filter_type, sbyte* line_buffer)
+                byte* pixels, int strideBytes, int width,
+                int y, int n, int filterType, sbyte* lineBuffer)
             {
-                s.Cancellation.ThrowIfCancellationRequested();
-
                 int* mapping = stackalloc int[5];
                 mapping[0] = 0;
                 mapping[1] = 1;
@@ -346,13 +349,13 @@ namespace StbSharp
                 int* mymap = (y != 0) ? mapping : firstmap;
                 int i = 0;
                 int stride = width * n;
-                int type = mymap[filter_type];
+                int type = mymap[filterType];
                 byte* z = pixels;
-                int signed_stride = FlipVerticallyOnWrite != 0 ? -stride_bytes : stride_bytes;
+                int signedStride = FlipVerticallyOnWrite != 0 ? -strideBytes : strideBytes;
 
                 if (type == 0)
                 {
-                    CRuntime.memcpy(line_buffer, z, stride);
+                    CRuntime.MemCopy(lineBuffer, z, stride);
                     return;
                 }
 
@@ -363,25 +366,25 @@ namespace StbSharp
                     case 5:
                     case 6:
                         if (n == 4)
-                            *(int*)line_buffer = *(int*)z;
+                            *(int*)lineBuffer = *(int*)z;
                         else
                             for (; i < n; ++i)
-                                line_buffer[i] = (sbyte)z[i];
+                                lineBuffer[i] = (sbyte)z[i];
                         break;
 
                     case 2:
                         for (; i < n; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - z[i - signed_stride]);
+                            lineBuffer[i] = (sbyte)(z[i] - z[i - signedStride]);
                         break;
 
                     case 3:
                         for (; i < n; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - (z[i - signed_stride] >> 1));
+                            lineBuffer[i] = (sbyte)(z[i] - (z[i - signedStride] >> 1));
                         break;
 
                     case 4:
                         for (; i < n; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(0, z[i - signed_stride], 0));
+                            lineBuffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(0, z[i - signedStride], 0));
                         break;
                 }
 
@@ -390,33 +393,33 @@ namespace StbSharp
                 {
                     case 1:
                         for (; i < stride; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - z[i - n]);
+                            lineBuffer[i] = (sbyte)(z[i] - z[i - n]);
                         break;
 
                     case 2:
                         for (; i < stride; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - z[i - signed_stride]);
+                            lineBuffer[i] = (sbyte)(z[i] - z[i - signedStride]);
                         break;
 
                     case 3:
                         for (; i < stride; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - ((z[i - n] + z[i - signed_stride]) >> 1));
+                            lineBuffer[i] = (sbyte)(z[i] - ((z[i - n] + z[i - signedStride]) >> 1));
                         break;
 
                     case 4:
                         for (; i < stride; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(
-                                z[i - n], z[i - signed_stride], z[i - signed_stride - n]));
+                            lineBuffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(
+                                z[i - n], z[i - signedStride], z[i - signedStride - n]));
                         break;
 
                     case 5:
                         for (; i < stride; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - (z[i - n] >> 1));
+                            lineBuffer[i] = (sbyte)(z[i] - (z[i - n] >> 1));
                         break;
 
                     case 6:
                         for (; i < stride; ++i)
-                            line_buffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(z[i - n], 0, 0));
+                            lineBuffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(z[i - n], 0, 0));
                         break;
                 }
             }

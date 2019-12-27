@@ -10,7 +10,7 @@ namespace StbSharp
             public static readonly ReadOnlyMemory<byte> FileHeader =
                 Encoding.UTF8.GetBytes("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n");
 
-            public static int stbi_write_hdr_core(in WriteContext s)
+            public static int WriteCore(in WriteContext s)
             {
                 int x = s.Width;
                 int y = s.Height;
@@ -26,7 +26,7 @@ namespace StbSharp
                 ScratchBuffer scratch = default;
                 try
                 {
-                    if (x < 8 || x >= s.ScratchBuffer.Length / 4) // TODO: try to remove "x < 8" condition
+                    if (x < 8 || x >= s.ScratchBuffer.Count / 4) // TODO: try to remove "x < 8" condition
                         scratch = s.GetScratch(x * 4);
 
                     for (int line = 0; line < y; line++)
@@ -42,9 +42,9 @@ namespace StbSharp
 
             public static void LinearToRgbe(Span<byte> output, ReadOnlySpan<float> linear)
             {
-                float maxcomp = linear[0] > (linear[1] > linear[2]
-                    ? linear[1] : linear[2])
-                    ? linear[0] : (linear[1] > linear[2] ? linear[1] : linear[2]);
+                float maxcomp = linear[0] > (linear[1] > linear[2] ? linear[1] : linear[2])
+                    ? linear[0]
+                    : (linear[1] > linear[2] ? linear[1] : linear[2]);
 
                 if (maxcomp < 1e-32f)
                 {
@@ -53,7 +53,9 @@ namespace StbSharp
                 }
                 else
                 {
-                    float normalize = (float)(CRuntime.frexp(maxcomp, out int exponent) * 256.0 / maxcomp);
+                    float normalize = (float)(CRuntime.FractionExponent(
+                        maxcomp, out int exponent) * 256.0 / maxcomp);
+
                     output[0] = (byte)(linear[0] * normalize);
                     output[1] = (byte)(linear[1] * normalize);
                     output[2] = (byte)(linear[2] * normalize);
@@ -83,7 +85,7 @@ namespace StbSharp
             public static void WriteHdrScanline(in WriteContext s, int y, ScratchBuffer scratch)
             {
                 int w = s.Width;
-                int n = s.Comp;
+                int n = s.Components;
                 int x;
 
                 Span<byte> scanlineheader = stackalloc byte[4];
@@ -96,7 +98,7 @@ namespace StbSharp
                 Span<float> linear = stackalloc float[3];
 
                 Span<float> scanline = stackalloc float[n];
-                if (w < 8 || w >= s.ScratchBuffer.Length / 4)
+                if (w < 8 || w >= s.ScratchBuffer.Count / 4)
                 {
                     for (x = 0; x < w; x++)
                     {

@@ -10,10 +10,10 @@ namespace StbSharp
             {
                 int x = s.Width;
                 int y = s.Height;
-                int comp = s.Comp;
+                int comp = s.Components;
 
-                int has_alpha = (comp == 2 || comp == 4) ? 1 : 0;
-                int colorbytes = has_alpha != 0 ? comp - 1 : comp;
+                int hasAlpha = (comp == 2 || comp == 4) ? 1 : 0;
+                int colorbytes = hasAlpha != 0 ? comp - 1 : comp;
                 int format = colorbytes < 2 ? 3 : 2;
                 if ((y < 0) || (x < 0))
                     return 0;
@@ -24,9 +24,9 @@ namespace StbSharp
                     {
                         0, 0, format, 0, 0,
                         0, 0,
-                        0, x, y, (colorbytes + has_alpha) * 8, has_alpha * 8
+                        0, x, y, (colorbytes + hasAlpha) * 8, hasAlpha * 8
                     };
-                    return WriteHelpers.Outfile(s, true, -1, false, has_alpha, 0, "111 221 2222 11", headers);
+                    return WriteHelpers.Outfile(s, true, -1, false, hasAlpha, 0, "111 221 2222 11", headers);
                 }
                 else
                 {
@@ -35,8 +35,8 @@ namespace StbSharp
                     {
                         0, 0, format + 8, 0, 0,
                         0,
-                        0, 0, x, y, (colorbytes + has_alpha) * 8,
-                        has_alpha * 8
+                        0, 0, x, y, (colorbytes + hasAlpha) * 8,
+                        hasAlpha * 8
                     };
                     WriteHelpers.WriteFormat(s, "111 221 2222 11", headers);
 
@@ -62,7 +62,7 @@ namespace StbSharp
                             {
                                 ++len;
                                 s.ReadBytes(rowPixel, rowOffset + (i + 1) * comp);
-                                diff = CRuntime.memcmp(beginPixel, rowPixel, comp);
+                                diff = CRuntime.MemCompare(beginPixel, rowPixel, comp);
                                 if (diff != 0)
                                 {
                                     beginPixel.CopyTo(prevPixel);
@@ -71,7 +71,7 @@ namespace StbSharp
                                     for (k = i + 2; (k < x) && (len < 128); ++k)
                                     {
                                         s.ReadBytes(rowPixel, rowOffset + k * comp);
-                                        if (CRuntime.memcmp(prevPixel, rowPixel, comp) != 0)
+                                        if (CRuntime.MemCompare(prevPixel, rowPixel, comp) != 0)
                                         {
                                             s.ReadBytes(prevPixel, prevOffset);
                                             prevOffset += comp;
@@ -89,7 +89,7 @@ namespace StbSharp
                                     for (k = i + 2; (k < x) && (len < 128); ++k)
                                     {
                                         s.ReadBytes(rowPixel, rowOffset + k * comp);
-                                        if (CRuntime.memcmp(beginPixel, rowPixel, comp) == 0)
+                                        if (CRuntime.MemCompare(beginPixel, rowPixel, comp) == 0)
                                             ++len;
                                         else
                                             break;
@@ -105,7 +105,7 @@ namespace StbSharp
                                 for (k = 0; k < len; ++k)
                                 {
                                     s.ReadBytes(beginPixel, beginOffset + k * comp);
-                                    int pixlen = WriteHelpers.WritePixel(true, has_alpha, false, beginPixel, outputBuffer);
+                                    int pixlen = WriteHelpers.WritePixel(true, hasAlpha, false, beginPixel, outputBuffer);
                                     s.Write(s, outputBuffer.Slice(0, pixlen));
                                 }
                             }
@@ -114,7 +114,7 @@ namespace StbSharp
                                 headerBuffer[0] = (byte)((len - 129) & 0xff);
                                 s.Write(s, headerBuffer);
 
-                                int pixlen = WriteHelpers.WritePixel(true, has_alpha, false, beginPixel, outputBuffer);
+                                int pixlen = WriteHelpers.WritePixel(true, hasAlpha, false, beginPixel, outputBuffer);
                                 s.Write(s, outputBuffer.Slice(0, pixlen));
                             }
                         }
