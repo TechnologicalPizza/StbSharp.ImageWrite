@@ -1,9 +1,18 @@
 using System;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace StbSharp
 {
+    internal static class CancellationTokenExtensions
+    {
+        public static void ThrowIfCancellationRequested(this CancellationToken? token)
+        {
+            token?.ThrowIfCancellationRequested();
+        }
+    }
+
     public static partial class StbImageWrite
     {
         public static unsafe class Png
@@ -19,7 +28,7 @@ namespace StbSharp
             {
                 ZlibHeader.ConvertLevel(level); // acts as a parameter check
 
-                s.Cancellation.ThrowIfCancellationRequested();
+                s.CancellationToken.ThrowIfCancellationRequested();
 
                 int w = s.Width;
                 int h = s.Height;
@@ -42,7 +51,7 @@ namespace StbSharp
                     return false;
                 }
 
-                s.Cancellation.ThrowIfCancellationRequested();
+                s.CancellationToken.ThrowIfCancellationRequested();
 
                 double progressStep = 0;
                 int pixels = w * h;
@@ -57,7 +66,7 @@ namespace StbSharp
                     {
                         for (int y = 0; y < h; ++y)
                         {
-                            s.Cancellation.ThrowIfCancellationRequested();
+                            s.CancellationToken.ThrowIfCancellationRequested();
 
                             int dataOffset = stride * (FlipVerticallyOnWrite != 0 ? h - 1 - y : y);
                             s.ReadBytes(row, dataOffset);
@@ -88,7 +97,7 @@ namespace StbSharp
                                         bestFilter = filterType;
                                     }
 
-                                    s.Cancellation.ThrowIfCancellationRequested();
+                                    s.CancellationToken.ThrowIfCancellationRequested();
                                 }
 
                                 if (filterType != bestFilter)
@@ -98,7 +107,7 @@ namespace StbSharp
                                 }
                             }
 
-                            s.Cancellation.ThrowIfCancellationRequested();
+                            s.CancellationToken.ThrowIfCancellationRequested();
 
                             filt[y * (stride + 1)] = (byte)filterType;
                             CRuntime.MemCopy(filt + y * (stride + 1) + 1, lineBuffer, stride);
@@ -127,7 +136,7 @@ namespace StbSharp
                     rowScratch.Dispose();
                 }
 
-                s.Cancellation.ThrowIfCancellationRequested();
+                s.CancellationToken.ThrowIfCancellationRequested();
 
                 // TODO: redesign chunk encoding to write partial chunks instead of one large
                 IMemoryResult compressed;
@@ -141,7 +150,8 @@ namespace StbSharp
                     }
 
                     var filtSpan = new ReadOnlySpan<byte>(filt, filtLength);
-                    compressed = ZlibCompress.DeflateCompress(filtSpan, level, s.Cancellation, weightedProgress);
+                    compressed = ZlibCompress.DeflateCompress(
+                        filtSpan, level, s.CancellationToken, weightedProgress);
 
                     if (compressed == null)
                         return false;
@@ -149,7 +159,7 @@ namespace StbSharp
                 finally
                 {
                     CRuntime.Free(filt);
-                    s.Cancellation.ThrowIfCancellationRequested();
+                    s.CancellationToken.ThrowIfCancellationRequested();
                 }
 
                 try
@@ -203,7 +213,7 @@ namespace StbSharp
                     //       encoding needs to happen "on demand"
                     //       (instead of lines encode a specified amount of pixels)
 
-                    s.Cancellation.ThrowIfCancellationRequested();
+                    s.CancellationToken.ThrowIfCancellationRequested();
 
                     #region IDAT chunk
 
@@ -217,7 +227,7 @@ namespace StbSharp
                     int written = 0;
                     while (written < compressed.Length)
                     {
-                        s.Cancellation.ThrowIfCancellationRequested();
+                        s.CancellationToken.ThrowIfCancellationRequested();
 
                         int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Count);
                         s.Write(s, compressedSpan.Slice(written, sliceLength));

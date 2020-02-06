@@ -27,7 +27,7 @@ namespace StbSharp
             public readonly int Components;
 
             public readonly Stream Output;
-            public readonly CancellationToken Cancellation;
+            public readonly CancellationToken? CancellationToken;
 
             public readonly ArraySegment<byte> WriteBuffer;
             public readonly ArraySegment<byte> ScratchBuffer;
@@ -43,7 +43,7 @@ namespace StbSharp
                 int height,
                 int components,
                 Stream output,
-                CancellationToken cancellation,
+                CancellationToken? cancellationToken,
                 ArraySegment<byte> writeBuffer,
                 ArraySegment<byte> scratchBuffer)
             {
@@ -57,7 +57,7 @@ namespace StbSharp
                 Components = components;
 
                 Output = output;
-                Cancellation = cancellation;
+                CancellationToken = cancellationToken;
                 WriteBuffer = writeBuffer;
                 ScratchBuffer = scratchBuffer;
             }
@@ -71,13 +71,13 @@ namespace StbSharp
                 int height,
                 int components,
                 Stream output,
-                CancellationToken cancellation,
+                CancellationToken? cancellationToken,
                 byte[] writeBuffer,
                 byte[] scratchBuffer) :
                 this(
                     readBytePixels, readFloatPixels, writeCallback, progressCallback,
                     width, height, components,
-                    output, cancellation, 
+                    output, cancellationToken, 
                     new ArraySegment<byte>(writeBuffer),
                     new ArraySegment<byte>(scratchBuffer))
             {
@@ -91,13 +91,13 @@ namespace StbSharp
                 int height,
                 int components,
                 Stream output,
-                CancellationToken cancellation,
+                CancellationToken? cancellationToken,
                 ArraySegment<byte> writeBuffer,
                 ArraySegment<byte> scratchBuffer) :
                 this(
                     readBytePixels, readFloatPixels, DefaultWrite, progressCallback,
                     width, height, components,
-                    output, cancellation, writeBuffer, scratchBuffer)
+                    output, cancellationToken, writeBuffer, scratchBuffer)
             {
             }
 
