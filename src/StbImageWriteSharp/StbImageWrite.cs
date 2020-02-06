@@ -27,7 +27,7 @@ namespace StbSharp
             public readonly int Components;
 
             public readonly Stream Output;
-            public readonly CancellationToken Cancellation;
+            public readonly CancellationToken CancellationToken;
 
             public readonly ArraySegment<byte> WriteBuffer;
             public readonly ArraySegment<byte> ScratchBuffer;
@@ -57,7 +57,7 @@ namespace StbSharp
                 Components = components;
 
                 Output = output;
-                Cancellation = cancellation;
+                CancellationToken = cancellation;
                 WriteBuffer = writeBuffer;
                 ScratchBuffer = scratchBuffer;
             }
