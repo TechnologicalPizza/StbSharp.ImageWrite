@@ -71,13 +71,13 @@ namespace StbSharp
                 int height,
                 int components,
                 Stream output,
-                CancellationToken cancellation,
+                CancellationToken cancellationToken,
                 byte[] writeBuffer,
                 byte[] scratchBuffer) :
                 this(
                     readBytePixels, readFloatPixels, writeCallback, progressCallback,
                     width, height, components,
-                    output, cancellation, 
+                    output, cancellationToken, 
                     new ArraySegment<byte>(writeBuffer),
                     new ArraySegment<byte>(scratchBuffer))
             {
@@ -91,13 +91,13 @@ namespace StbSharp
                 int height,
                 int components,
                 Stream output,
-                CancellationToken cancellation,
+                CancellationToken cancellationToken,
                 ArraySegment<byte> writeBuffer,
                 ArraySegment<byte> scratchBuffer) :
                 this(
                     readBytePixels, readFloatPixels, DefaultWrite, progressCallback,
                     width, height, components,
-                    output, cancellation, writeBuffer, scratchBuffer)
+                    output, cancellationToken, writeBuffer, scratchBuffer)
             {
             }
 

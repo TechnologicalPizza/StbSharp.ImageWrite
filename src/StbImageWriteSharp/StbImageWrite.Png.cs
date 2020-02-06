@@ -1,6 +1,7 @@
 using System;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace StbSharp
 {
@@ -141,7 +142,8 @@ namespace StbSharp
                     }
 
                     var filtSpan = new ReadOnlySpan<byte>(filt, filtLength);
-                    compressed = ZlibCompress.DeflateCompress(filtSpan, level, s.CancellationToken, weightedProgress);
+                    compressed = ZlibCompress.DeflateCompress(
+                        filtSpan, level, s.CancellationToken, weightedProgress);
 
                     if (compressed == null)
                         return false;
