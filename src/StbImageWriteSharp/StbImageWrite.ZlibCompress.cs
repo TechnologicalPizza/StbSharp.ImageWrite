@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -14,9 +15,9 @@ namespace StbSharp
             /// Delegate for a zlib deflate (RFC 1951) compression implementation.
             /// </summary>
             public delegate IMemoryResult DeflateCompressDelegate(
-                ReadOnlySpan<byte> data, 
+                ReadOnlySpan<byte> data,
                 CompressionLevel level,
-                CancellationToken cancellationToken, 
+                CancellationToken cancellationToken,
                 WriteProgressCallback onProgress = null);
 
             /// <summary>
@@ -33,7 +34,7 @@ namespace StbSharp
             public static IMemoryResult DeflateCompress(
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
-                CancellationToken cancellationToken, 
+                CancellationToken cancellationToken,
                 WriteProgressCallback onProgress = null)
             {
                 if (CustomDeflateCompress != null)
@@ -66,9 +67,9 @@ namespace StbSharp
                 }
 
                 uint adlerSum = Adler32.Calculate(data);
-                byte[] adlerBytes = BitConverter.GetBytes(adlerSum);
-                adlerBytes.AsSpan().Reverse();
-                output.Write(adlerBytes, 0, adlerBytes.Length);
+                byte[] adlerSumBytes = new byte[sizeof(uint)];
+                BinaryPrimitives.WriteUInt32BigEndian(adlerSumBytes, adlerSum);
+                output.Write(adlerSumBytes, 0, adlerSumBytes.Length);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
