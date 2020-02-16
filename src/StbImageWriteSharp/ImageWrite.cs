@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace StbSharp
 {
-    public static partial class StbImageWrite
+    public static partial class ImageWrite
     {
         public delegate void ReadBytePixelsCallback(Span<byte> destination, int dataOffset);
         public delegate void ReadFloatPixelsCallback(Span<float> destination, int dataOffset);

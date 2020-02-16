@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace StbSharp
 {
-    public static partial class StbImageWrite
+    public static partial class ImageWrite
     {
         public static class ZlibCompress
         {

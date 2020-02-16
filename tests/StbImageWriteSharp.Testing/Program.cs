@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
-using static StbSharp.StbImageWrite;
+using static StbSharp.ImageWrite;
 
 namespace StbImageWriteSharp.Testing
 {

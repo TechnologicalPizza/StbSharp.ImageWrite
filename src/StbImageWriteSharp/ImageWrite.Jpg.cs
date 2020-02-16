@@ -2,7 +2,7 @@ using System;
 
 namespace StbSharp
 {
-    public static partial class StbImageWrite
+    public static partial class ImageWrite
     {
         public static unsafe partial class Jpg
         {
@@ -16,9 +16,9 @@ namespace StbSharp
                 while (bitCnt >= 8)
                 {
                     byte c = (byte)((bitBuf >> 16) & 255);
-                    WriteHelpers.WriteChar(s, c);
+                    ImageWriteHelpers.WriteByte(s, c);
                     if (c == 255)
-                        WriteHelpers.WriteChar(s, 0);
+                        ImageWriteHelpers.WriteByte(s, 0);
 
                     bitBuf <<= 8;
                     bitCnt -= 8;
@@ -249,24 +249,24 @@ namespace StbSharp
                     s.Write(s, head0);
 
                     s.Write(s, YTable);
-                    WriteHelpers.WriteChar(s, 1);
+                    ImageWriteHelpers.WriteByte(s, 1);
                     s.Write(s, UVTable);
                     s.Write(s, head1);
 
                     s.Write(s, std_DcLuminanceNrcodes.AsSpan(1, std_DcChrominanceNrcodes.Length - 1));
                     s.Write(s, std_DcLuminanceValues.AsSpan(0, std_DcChrominanceValues.Length));
 
-                    WriteHelpers.WriteChar(s, 0x10);
+                    ImageWriteHelpers.WriteByte(s, 0x10);
 
                     s.Write(s, std_AcLuminanceNrcodes.AsSpan(1));
                     s.Write(s, std_AcLuminanceValues);
 
-                    WriteHelpers.WriteChar(s, 1);
+                    ImageWriteHelpers.WriteByte(s, 1);
 
                     s.Write(s, std_DcChrominanceNrcodes.AsSpan(1));
                     s.Write(s, std_DcChrominanceValues);
 
-                    WriteHelpers.WriteChar(s, 0x11);
+                    ImageWriteHelpers.WriteByte(s, 0x11);
 
                     s.Write(s, std_AcChrominanceNrcodes.AsSpan(1));
                     s.Write(s, std_AcChrominanceValues);
@@ -347,8 +347,8 @@ namespace StbSharp
                     WriteBits(s, &bitBuf, &bitCnt, 0x7F, 7);
                 }
 
-                WriteHelpers.WriteChar(s, 0xFF);
-                WriteHelpers.WriteChar(s, 0xD9);
+                ImageWriteHelpers.WriteByte(s, 0xFF);
+                ImageWriteHelpers.WriteByte(s, 0xD9);
                 return 1;
             }
         }

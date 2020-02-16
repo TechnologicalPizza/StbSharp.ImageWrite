@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace StbSharp
 {
-    public static partial class StbImageWrite
+    public static partial class ImageWrite
     {
         public static unsafe class Png
         {
@@ -154,7 +154,7 @@ namespace StbSharp
                     s.CancellationToken.ThrowIfCancellationRequested();
                 }
 
-                try
+                using (compressed)
                 {
                     Span<byte> colorTypeMap = stackalloc byte[5];
                     colorTypeMap[0] = 255;
@@ -189,11 +189,11 @@ namespace StbSharp
                     hdrChunk.WriteUInt32((uint)h, tmp, ref pos); // height
 
                     byte colorType = colorTypeMap[n];
-                    hdrChunk.WriteInt8(8, tmp, ref pos); // bit depth
-                    hdrChunk.WriteInt8(colorType, tmp, ref pos); // color type
-                    hdrChunk.WriteInt8(0, tmp, ref pos); // compression method
-                    hdrChunk.WriteInt8(0, tmp, ref pos); // filter method
-                    hdrChunk.WriteInt8(0, tmp, ref pos); // interlace method
+                    hdrChunk.WriteByte(8, tmp, ref pos); // bit depth
+                    hdrChunk.WriteByte(colorType, tmp, ref pos); // color type
+                    hdrChunk.WriteByte(0, tmp, ref pos); // compression method
+                    hdrChunk.WriteByte(0, tmp, ref pos); // filter method
+                    hdrChunk.WriteByte(0, tmp, ref pos); // interlace method
 
                     hdrChunk.WriteFooter(tmp, ref pos);
 
@@ -245,10 +245,6 @@ namespace StbSharp
 
                     return true;
                 }
-                finally
-                {
-                    compressed.Dispose();
-                }
             }
 
             #region PngChunk
@@ -266,7 +262,7 @@ namespace StbSharp
                     if (type == null)
                         throw new ArgumentNullException(nameof(type));
                     if (type.Length != 4)
-                        throw new ArgumentException(nameof(type), "The type must be exactly 4 characters long.");
+                        throw new ArgumentException(nameof(type), "The string must be exactly 4 characters long.");
 
                     uint u32Type = 0;
                     var u32TypeSpan = new Span<byte>(&u32Type, sizeof(uint));
@@ -290,15 +286,15 @@ namespace StbSharp
                     Crc = crc;
                 }
 
-                public void WriteHeader(Span<byte> output, ref int position)
+                public void WriteHeader(Span<byte> destination, ref int position)
                 {
-                    WriteHelpers.WriteUInt(Length, output, ref position);
-                    WriteHelpers.WriteUInt(Type, output, ref position);
+                    ImageWriteHelpers.WriteUInt(Length, destination, ref position);
+                    ImageWriteHelpers.WriteUInt(Type, destination, ref position);
                 }
 
-                public void WriteFooter(Span<byte> output, ref int position)
+                public void WriteFooter(Span<byte> destination, ref int position)
                 {
-                    WriteHelpers.WriteUInt(~Crc, output, ref position);
+                    ImageWriteHelpers.WriteUInt(~Crc, destination, ref position);
                 }
 
                 #region Slurp
@@ -308,21 +304,21 @@ namespace StbSharp
                     Crc = Crc32.Calculate(data, Crc);
                 }
 
-                private void HashData(ReadOnlySpan<byte> span, int size, int position)
+                private void HashData(ReadOnlySpan<byte> data, int size, int position)
                 {
-                    HashData(span.Slice(position - size, size));
+                    HashData(data.Slice(position - size, size));
                 }
 
-                public void WriteUInt32(uint value, Span<byte> output, ref int position)
+                public void WriteUInt32(uint value, Span<byte> destination, ref int position)
                 {
-                    WriteHelpers.WriteUInt(value, output, ref position);
-                    HashData(output, sizeof(uint), position);
+                    ImageWriteHelpers.WriteUInt(value, destination, ref position);
+                    HashData(destination, sizeof(uint), position);
                 }
 
-                public void WriteInt8(byte value, Span<byte> output, ref int position)
+                public void WriteByte(byte value, Span<byte> destination, ref int position)
                 {
-                    output[position++] = value;
-                    HashData(output, sizeof(byte), position);
+                    destination[position++] = value;
+                    HashData(destination, sizeof(byte), position);
                 }
 
                 #endregion
@@ -349,11 +345,9 @@ namespace StbSharp
                 firstmap[4] = 6;
 
                 int* mymap = (y != 0) ? mapping : firstmap;
-                int i = 0;
-                int stride = width * n;
                 int type = mymap[filterType];
+                int stride = width * n;
                 byte* z = pixels;
-                int signedStride = FlipVerticallyOnWrite != 0 ? -strideBytes : strideBytes;
 
                 if (type == 0)
                 {
@@ -361,7 +355,8 @@ namespace StbSharp
                     return;
                 }
 
-                i = 0;
+                int signedStride = FlipVerticallyOnWrite != 0 ? -strideBytes : strideBytes;
+                int i = 0;
                 switch (type)
                 {
                     case 1:
