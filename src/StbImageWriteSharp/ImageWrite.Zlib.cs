@@ -14,7 +14,7 @@ namespace StbSharp
             /// <summary>
             /// Delegate for a zlib deflate (RFC 1951) compression implementation.
             /// </summary>
-            public delegate IMemoryResult DeflateCompressDelegate(
+            public delegate IMemoryHolder DeflateCompressDelegate(
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
                 CancellationToken cancellationToken,
@@ -31,7 +31,7 @@ namespace StbSharp
             /// adds zlib (RFC 1951) headers and checksum.
             /// <para>Can be replaced by assigning <see cref="CustomDeflateCompress"/>.</para>
             /// </summary>
-            public static IMemoryResult DeflateCompress(
+            public static IMemoryHolder DeflateCompress(
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
                 CancellationToken cancellationToken,

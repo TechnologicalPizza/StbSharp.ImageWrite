@@ -131,7 +131,7 @@ namespace StbSharp
                 s.CancellationToken.ThrowIfCancellationRequested();
 
                 // TODO: redesign chunk encoding to write partial chunks instead of one large
-                IMemoryResult compressed;
+                IMemoryHolder compressed;
                 try
                 {
                     WriteProgressCallback weightedProgress = null;
