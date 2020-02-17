@@ -9,7 +9,7 @@ namespace StbSharp
 {
     public static partial class ImageWrite
     {
-        public static class ZlibCompress
+        public static class Zlib
         {
             /// <summary>
             /// Delegate for a zlib deflate (RFC 1951) compression implementation.

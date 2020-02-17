@@ -142,7 +142,7 @@ namespace StbSharp
                     }
 
                     var filtSpan = new ReadOnlySpan<byte>(filt, filtLength);
-                    compressed = ZlibCompress.DeflateCompress(
+                    compressed = Zlib.DeflateCompress(
                         filtSpan, level, s.CancellationToken, weightedProgress);
 
                     if (compressed == null)
