@@ -48,6 +48,7 @@ namespace StbSharp
                 output.WriteByte(header.GetFLG());
 
                 byte[] copyBuffer = new byte[1024 * 8];
+
                 cancellationToken.ThrowIfCancellationRequested();
 
                 using (var deflate = new DeflateStream(output, level, leaveOpen: true))
@@ -66,6 +67,8 @@ namespace StbSharp
                     }
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
+
                 uint adlerSum = Adler32.Calculate(data);
                 byte[] adlerSumBytes = new byte[sizeof(uint)];
                 BinaryPrimitives.WriteUInt32BigEndian(adlerSumBytes, adlerSum);
@@ -73,9 +76,7 @@ namespace StbSharp
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                byte[] result = output.GetBuffer();
-                var gcHandle = GCHandle.Alloc(result, GCHandleType.Pinned);
-                return new GCHandleResult(gcHandle, (int)output.Length);
+                return new ByteMemoryHolder(output.GetBuffer().AsMemory(0, (int)output.Length));
             }
         }
     }

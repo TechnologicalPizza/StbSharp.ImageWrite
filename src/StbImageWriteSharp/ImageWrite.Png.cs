@@ -215,7 +215,7 @@ namespace StbSharp
                     s.Write(s, tmp.Slice(0, pos));
                     pos = 0;
 
-                    var compressedSpan = new Span<byte>((void*)compressed.Pointer, compressed.Length);
+                    var compressedSpan = compressed.Span;
                     int written = 0;
                     while (written < compressed.Length)
                     {
