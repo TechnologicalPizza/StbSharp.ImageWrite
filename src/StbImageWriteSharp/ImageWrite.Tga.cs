@@ -111,7 +111,7 @@ namespace StbSharp
                                 {
                                     s.ReadBytes(beginPixel, beginOffset + k * comp);
                                     int pixlen = ImageWriteHelpers.WritePixel(true, hasAlpha, false, beginPixel, outputBuffer);
-                                    s.Write(s, outputBuffer.Slice(0, pixlen));
+                                    s.Write(outputBuffer.Slice(0, pixlen));
                                 }
                             }
                             else
@@ -119,7 +119,7 @@ namespace StbSharp
                                 s.WriteByte((byte)((len - 129) & 0xff));
 
                                 int pixlen = ImageWriteHelpers.WritePixel(true, hasAlpha, false, beginPixel, outputBuffer);
-                                s.Write(s, outputBuffer.Slice(0, pixlen));
+                                s.Write(outputBuffer.Slice(0, pixlen));
                             }
                         }
                     }

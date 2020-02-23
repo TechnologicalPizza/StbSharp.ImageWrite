@@ -394,32 +394,32 @@ namespace StbSharp
                     head1[22] = 0xA2;
                     head1[23] = 0;
 
-                    s.Write(s, head0);
+                    s.Write(head0);
 
-                    s.Write(s, YTable);
+                    s.Write(YTable);
                     ImageWriteHelpers.WriteByte(s, 1);
-                    s.Write(s, UVTable);
-                    s.Write(s, head1);
+                    s.Write(UVTable);
+                    s.Write(head1);
 
-                    s.Write(s, std_DcLuminanceNrcodes.AsSpan(1, std_DcChrominanceNrcodes.Length - 1));
-                    s.Write(s, std_DcLuminanceValues.AsSpan(0, std_DcChrominanceValues.Length));
+                    s.Write(std_DcLuminanceNrcodes.AsSpan(1, std_DcChrominanceNrcodes.Length - 1));
+                    s.Write(std_DcLuminanceValues.AsSpan(0, std_DcChrominanceValues.Length));
 
                     ImageWriteHelpers.WriteByte(s, 0x10);
 
-                    s.Write(s, std_AcLuminanceNrcodes.AsSpan(1));
-                    s.Write(s, std_AcLuminanceValues);
+                    s.Write(std_AcLuminanceNrcodes.AsSpan(1));
+                    s.Write(std_AcLuminanceValues);
 
                     ImageWriteHelpers.WriteByte(s, 1);
 
-                    s.Write(s, std_DcChrominanceNrcodes.AsSpan(1));
-                    s.Write(s, std_DcChrominanceValues);
+                    s.Write(std_DcChrominanceNrcodes.AsSpan(1));
+                    s.Write(std_DcChrominanceValues);
 
                     ImageWriteHelpers.WriteByte(s, 0x11);
 
-                    s.Write(s, std_AcChrominanceNrcodes.AsSpan(1));
-                    s.Write(s, std_AcChrominanceValues);
+                    s.Write(std_AcChrominanceNrcodes.AsSpan(1));
+                    s.Write(std_AcChrominanceValues);
 
-                    s.Write(s, head2);
+                    s.Write(head2);
                 }
 
                 {

@@ -17,11 +17,11 @@ namespace StbSharp
                 if (y <= 0 || x <= 0)
                     return 0;
 
-                s.Write(s, FileHeader.Span);
+                s.Write(FileHeader.Span);
 
                 byte[] bytes = Encoding.UTF8.GetBytes(string.Format(
                     "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", y.ToString(), x.ToString()));
-                s.Write(s, bytes);
+                s.Write(bytes);
 
                 ScratchBuffer scratch = default;
                 try
@@ -67,19 +67,19 @@ namespace StbSharp
             {
                 Span<byte> tmp = stackalloc byte[1];
                 tmp[0] = (byte)((length + 128) & 0xff); // lengthbyte
-                s.Write(s, tmp);
+                s.Write(tmp);
 
                 tmp[0] = databyte;
-                s.Write(s, tmp);
+                s.Write(tmp);
             }
 
             public static void WriteDumpData(in WriteContext s, ReadOnlySpan<byte> data)
             {
                 Span<byte> tmp = stackalloc byte[1];
                 tmp[0] = (byte)((data.Length) & 0xff); // lengthbyte
-                s.Write(s, tmp);
+                s.Write(tmp);
 
-                s.Write(s, data);
+                s.Write(data);
             }
 
             public static void WriteHdrScanline(in WriteContext s, int y, ScratchBuffer scratch)
@@ -119,7 +119,7 @@ namespace StbSharp
                         }
 
                         LinearToRgbe(rgbe, linear);
-                        s.Write(s, rgbe);
+                        s.Write(rgbe);
                     }
                 }
                 else
@@ -150,7 +150,7 @@ namespace StbSharp
                         scratchSpan[x + w * 3] = rgbe[3];
                     }
 
-                    s.Write(s, scanlineheader);
+                    s.Write(scanlineheader);
 
                     for (int c = 0; c < 4; c++)
                     {

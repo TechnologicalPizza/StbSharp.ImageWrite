@@ -105,7 +105,7 @@ namespace StbSharp
                             CRuntime.MemCopy(filt + y * (stride + 1) + 1, lineBuffer, stride);
 
                             // TODO: tidy this up a notch so it's easier to reuse in other implementations
-                            if (s.Progress != null)
+                            if (s.ProgressCallback != null)
                             {
                                 progressStep += w;
                                 while (progressStep >= progressStepSize)
@@ -134,11 +134,11 @@ namespace StbSharp
                 IMemoryHolder compressed;
                 try
                 {
-                    WriteProgressCallback weightedProgress = null;
-                    if (s.Progress != null)
+                    Action<double> weightedProgress = null;
+                    if (s.ProgressCallback != null)
                     {
-                        var wpc = s.Progress;
-                        weightedProgress = (p) => wpc.Invoke(p * 0.49 + 0.5);
+                        var ctx = s;
+                        weightedProgress = (p) => ctx.Progress(p * 0.49 + 0.5);
                     }
 
                     var filtSpan = new ReadOnlySpan<byte>(filt, filtLength);
@@ -212,7 +212,7 @@ namespace StbSharp
                     var datChunk = new PngChunk(compressed.Length, "IDAT");
                     datChunk.WriteHeader(tmp, ref pos);
 
-                    s.Write(s, tmp.Slice(0, pos));
+                    s.Write(tmp.Slice(0, pos));
                     pos = 0;
 
                     var compressedSpan = compressed.Span;
@@ -222,10 +222,10 @@ namespace StbSharp
                         s.CancellationToken.ThrowIfCancellationRequested();
 
                         int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Count);
-                        s.Write(s, compressedSpan.Slice(written, sliceLength));
+                        s.Write(compressedSpan.Slice(written, sliceLength));
 
                         written += sliceLength;
-                        s.Progress?.Invoke(written / (double)compressed.Length * 0.01 + 0.99);
+                        s.Progress(written / (double)compressed.Length * 0.01 + 0.99);
                     }
 
                     datChunk.HashData(compressedSpan);
@@ -239,7 +239,7 @@ namespace StbSharp
                     endChunk.WriteHeader(tmp, ref pos);
                     endChunk.WriteFooter(tmp, ref pos);
 
-                    s.Write(s, tmp.Slice(0, pos));
+                    s.Write(tmp.Slice(0, pos));
 
                     #endregion
 

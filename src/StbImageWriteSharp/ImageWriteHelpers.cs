@@ -34,7 +34,7 @@ namespace StbSharp
                         int shift = 8 * j;
                         buffer[j] = (byte)((x >> shift) & 0xff);
                     }
-                    s.Write(s, buffer.Slice(0, digit));
+                    s.Write(buffer.Slice(0, digit));
                 }
                 valueIndex++;
             }
@@ -43,7 +43,7 @@ namespace StbSharp
         public static void WriteByte(this in WriteContext s, byte value)
         {
             Span<byte> tmp = stackalloc byte[] { value };
-            s.Write(s, tmp);
+            s.Write(tmp);
         }
 
         /// <summary>
@@ -171,12 +171,12 @@ namespace StbSharp
 
                     if (offset != stride)
                     {
-                        s.Write(s, scratchSpan.Slice(0, offset));
-                        s.Write(s, scanlinePadSpan);
+                        s.Write(scratchSpan.Slice(0, offset));
+                        s.Write(scanlinePadSpan);
                     }
                     else
                     {
-                        s.Write(s, scratchSpan);
+                        s.Write(scratchSpan);
                     }
                 }
             }

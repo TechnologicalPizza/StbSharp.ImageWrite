@@ -18,7 +18,7 @@ namespace StbSharp
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
                 CancellationToken cancellationToken,
-                WriteProgressCallback onProgress = null);
+                Action<double> onProgress = null);
 
             /// <summary>
             /// Custom zlib deflate (RFC 1951) compression implementation 
@@ -35,7 +35,7 @@ namespace StbSharp
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
                 CancellationToken cancellationToken,
-                WriteProgressCallback onProgress = null)
+                Action<double> onProgress = null)
             {
                 if (CustomDeflateCompress != null)
                     return CustomDeflateCompress.Invoke(data, level, cancellationToken, onProgress);
