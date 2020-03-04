@@ -54,7 +54,7 @@ namespace StbSharp
                 try
                 {
                     Span<byte> row = rowScratch.AsSpan();
-                    fixed (byte* rowPtr = &MemoryMarshal.GetReference(row))
+                    fixed (byte* rowPtr = row)
                     {
                         for (int y = 0; y < h; ++y)
                         {
