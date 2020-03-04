@@ -3,7 +3,7 @@
     <Authors>StbImageWriteSharpTeam</Authors>
     <Product>StbImageWriteSharp</Product>
     <PackageId>StbImageWriteSharp</PackageId>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <Description>C# port of the stb_image.h</Description>
     <PackageLicenseUrl>Public Domain</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/StbSharp/StbImageWriteSharp</PackageProjectUrl>
@@ -14,14 +14,8 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  
   <ItemGroup>
-    <Compile Remove="ImageWriter.cs" />
-    <Compile Remove="old zlib.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="System.Memory" Version="4.5.3" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Shared\src\StbSharp.Shared\StbSharp.Shared.csproj" />
+    <ProjectReference Include="..\..\Shared\src\StbSharp.Shared.csproj" />
   </ItemGroup>
 </Project>
