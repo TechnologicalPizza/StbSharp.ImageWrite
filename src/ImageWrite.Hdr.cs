@@ -10,7 +10,7 @@ namespace StbSharp
             public static readonly ReadOnlyMemory<byte> FileHeader =
                 Encoding.UTF8.GetBytes("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n");
 
-            public static int WriteCore(in WriteContext s)
+            public static int WriteCore(in WriteState s)
             {
                 int x = s.Width;
                 int y = s.Height;
@@ -26,7 +26,7 @@ namespace StbSharp
                 ScratchBuffer scratch = default;
                 try
                 {
-                    if (x < 8 || x >= s.ScratchBuffer.Count / 4) // TODO: try to remove "x < 8" condition
+                    if (x < 8 || x >= s.ScratchBuffer.Length / 4) // TODO: try to remove "x < 8" condition
                         scratch = s.GetScratch(x * 4);
 
                     for (int line = 0; line < y; line++)
@@ -63,7 +63,7 @@ namespace StbSharp
                 }
             }
 
-            public static void WriteRunData(in WriteContext s, int length, byte databyte)
+            public static void WriteRunData(in WriteState s, int length, byte databyte)
             {
                 Span<byte> tmp = stackalloc byte[1];
                 tmp[0] = (byte)((length + 128) & 0xff); // lengthbyte
@@ -73,7 +73,7 @@ namespace StbSharp
                 s.Write(tmp);
             }
 
-            public static void WriteDumpData(in WriteContext s, ReadOnlySpan<byte> data)
+            public static void WriteDumpData(in WriteState s, ReadOnlySpan<byte> data)
             {
                 Span<byte> tmp = stackalloc byte[1];
                 tmp[0] = (byte)((data.Length) & 0xff); // lengthbyte
@@ -82,7 +82,7 @@ namespace StbSharp
                 s.Write(data);
             }
 
-            public static void WriteHdrScanline(in WriteContext s, int y, ScratchBuffer scratch)
+            public static void WriteHdrScanline(in WriteState s, int y, ScratchBuffer scratch)
             {
                 int w = s.Width;
                 int n = s.Components;
@@ -98,7 +98,7 @@ namespace StbSharp
                 Span<float> linear = stackalloc float[3];
 
                 Span<float> scanline = stackalloc float[n];
-                if (w < 8 || w >= s.ScratchBuffer.Count / 4)
+                if (w < 8 || w >= s.ScratchBuffer.Length / 4)
                 {
                     for (x = 0; x < w; x++)
                     {

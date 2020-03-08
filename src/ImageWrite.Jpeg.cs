@@ -155,7 +155,7 @@ namespace StbSharp
             #endregion
 
             public static void WriteBits(
-                in WriteContext s, int* bitBufP, int* bitCntP, ushort bs0, ushort bs1)
+                in WriteState s, int* bitBufP, int* bitCntP, ushort bs0, ushort bs1)
             {
                 int bitBuf = *bitBufP;
                 int bitCnt = *bitCntP;
@@ -241,7 +241,7 @@ namespace StbSharp
             }
 
             public static int ProcessDU(
-                in WriteContext s, int* bitBuf, int* bitCnt, float* CDU,
+                in WriteState s, int* bitBuf, int* bitCnt, float* CDU,
                 float* fdtbl, int DC, ushort[,] HTDC, ushort[,] HTAC)
             {
                 ushort* EOB = stackalloc ushort[2];
@@ -328,7 +328,7 @@ namespace StbSharp
                 return DU[0];
             }
 
-            public static int WriteCore(in WriteContext s, bool readFloatPixels, int quality)
+            public static int WriteCore(in WriteState s, bool readFloatPixels, int quality)
             {
                 int width = s.Width;
                 int height = s.Height;

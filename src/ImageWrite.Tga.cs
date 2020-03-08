@@ -6,7 +6,7 @@ namespace StbSharp
     {
         public static class Tga
         {
-            public static int WriteCore(in WriteContext s, bool writeRLE)
+            public static int WriteCore(in WriteState s, bool writeRLE)
             {
                 int x = s.Width;
                 int y = s.Height;
@@ -22,12 +22,10 @@ namespace StbSharp
                 {
                     var headers = new long[]
                     {
-                        0, 0, format, 0, 0,
-                        0, 0,
-                        0,
-                        x, y,
-                        (colorbytes + hasAlpha) * 8,
-                        hasAlpha * 8
+                        0, 0, format,
+                        0, 0, 0,
+                        0, 0, x, y,
+                        (colorbytes + hasAlpha) * 8, hasAlpha * 8
                     };
                     return ImageWriteHelpers.OutFile(s, true, -1, false, hasAlpha, 0, "111 221 2222 11", headers);
                 }
@@ -35,12 +33,10 @@ namespace StbSharp
                 {
                     var headers = new long[]
                     {
-                        0, 0, format + 8, 0, 0,
-                        0,
-                        0, 0, 
-                        x, y,
-                        (colorbytes + hasAlpha) * 8,
-                        hasAlpha * 8
+                        0, 0, format + 8,
+                        0, 0, 0,
+                        0, 0, x, y,
+                        (colorbytes + hasAlpha) * 8, hasAlpha * 8
                     };
                     ImageWriteHelpers.WriteFormat(s, "111 221 2222 11", headers);
 
@@ -48,7 +44,6 @@ namespace StbSharp
                     Span<byte> rowPixel = stackalloc byte[comp];
                     Span<byte> beginPixel = stackalloc byte[comp];
                     Span<byte> prevPixel = stackalloc byte[comp];
-
                     Span<byte> outputBuffer = stackalloc byte[4];
                     
                     int k;

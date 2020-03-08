@@ -2,7 +2,6 @@ using System;
 using System.Buffers.Binary;
 using System.IO;
 using System.IO.Compression;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace StbSharp

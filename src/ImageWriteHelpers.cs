@@ -15,7 +15,7 @@ namespace StbSharp
         /// Maximum size of one integer is 8 bytes.
         /// </para>
         /// </summary>
-        public static void WriteFormat(this in WriteContext s, string format, ReadOnlySpan<long> values)
+        public static void WriteFormat(this in WriteState s, string format, ReadOnlySpan<long> values)
         {
             Span<byte> buffer = stackalloc byte[sizeof(long)];
 
@@ -40,7 +40,7 @@ namespace StbSharp
             }
         }
 
-        public static void WriteByte(this in WriteContext s, byte value)
+        public static void WriteByte(this in WriteState s, byte value)
         {
             Span<byte> tmp = stackalloc byte[] { value };
             s.Write(tmp);
@@ -49,7 +49,7 @@ namespace StbSharp
         /// <summary>
         /// Used for writing raw data with headers.
         /// </summary>
-        public static int OutFile(this in WriteContext s,
+        public static int OutFile(this in WriteState s,
             bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int pad,
             string format, ReadOnlySpan<long> values)
         {
@@ -123,7 +123,7 @@ namespace StbSharp
             return offset;
         }
 
-        public static void WritePixels(this in WriteContext s, 
+        public static void WritePixels(this in WriteState s, 
             bool flipRgb, int verticalDirection, int alphaDirection, int scanlinePad, bool expandMono)
         {
             if (scanlinePad < 0 || scanlinePad > 4)

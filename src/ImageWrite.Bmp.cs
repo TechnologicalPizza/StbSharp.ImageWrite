@@ -6,7 +6,7 @@ namespace StbSharp
     {
         public static class Bmp
         {
-            public static int WriteCore(in WriteContext s)
+            public static int WriteCore(in WriteState s)
             {
                 // we only support RGB and RGBA, no palette indexing
                 // TODO: support for palette indexing

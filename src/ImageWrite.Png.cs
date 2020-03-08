@@ -16,7 +16,7 @@ namespace StbSharp
             // TODO: split IDAT chunk into multiple
             // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
 
-            public static bool WriteCore(in WriteContext s, CompressionLevel level)
+            public static bool WriteCore(in WriteState s, CompressionLevel level)
             {
                 ZlibHeader.ConvertLevel(level); // acts as a parameter check
 
@@ -209,6 +209,8 @@ namespace StbSharp
 
                     #region IDAT chunk
 
+                    // TODO: make IDAT chunk writing progressive
+
                     var datChunk = new PngChunk(compressed.Length, "IDAT");
                     datChunk.WriteHeader(tmp, ref pos);
 
@@ -221,13 +223,14 @@ namespace StbSharp
                     {
                         s.CancellationToken.ThrowIfCancellationRequested();
 
-                        int sliceLength = Math.Min(compressed.Length - written, s.WriteBuffer.Count);
+                        int sliceLength = compressed.Length - written;
                         s.Write(compressedSpan.Slice(written, sliceLength));
 
                         written += sliceLength;
                         s.Progress(written / (double)compressed.Length * 0.01 + 0.99);
                     }
 
+                    // TODO: create a stream wrapper that can both write and calculate CRC simultaneously
                     datChunk.HashData(compressedSpan);
                     datChunk.WriteFooter(tmp, ref pos);
 
