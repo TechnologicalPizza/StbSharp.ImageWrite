@@ -41,6 +41,8 @@ namespace StbSharp
 
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // TODO: remake this
+
                 var header = ZlibHeader.CreateForDeflateStream(level);
                 var output = new MemoryStream();
                 output.WriteByte(header.GetCMF());
