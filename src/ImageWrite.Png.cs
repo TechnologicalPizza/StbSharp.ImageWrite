@@ -379,7 +379,7 @@ namespace StbSharp
 
                     case 3:
                         for (; i < n; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - (z[i - signedStride] >> 1));
+                            lineBuffer[i] = (sbyte)(z[i] - (z[i - signedStride] / 2));
                         break;
 
                     case 4:
@@ -403,7 +403,7 @@ namespace StbSharp
 
                     case 3:
                         for (; i < stride; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - ((z[i - n] + z[i - signedStride]) >> 1));
+                            lineBuffer[i] = (sbyte)(z[i] - ((z[i - n] + z[i - signedStride]) / 2));
                         break;
 
                     case 4:
@@ -414,7 +414,7 @@ namespace StbSharp
 
                     case 5:
                         for (; i < stride; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - (z[i - n] >> 1));
+                            lineBuffer[i] = (sbyte)(z[i] - (z[i - n] / 2));
                         break;
 
                     case 6:
