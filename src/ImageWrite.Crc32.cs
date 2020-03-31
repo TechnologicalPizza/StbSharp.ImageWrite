@@ -49,8 +49,10 @@ namespace StbSharp
             public static uint Calculate(ReadOnlySpan<byte> buffer, uint baseCrc = ~0u)
             {
                 uint crc = baseCrc;
+
                 for (int i = 0; i < buffer.Length; ++i)
                     crc = (crc >> 8) ^ CrcTable[buffer[i] ^ (crc & 0xff)];
+
                 return crc;
             }
         }

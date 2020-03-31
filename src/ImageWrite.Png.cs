@@ -268,21 +268,21 @@ namespace StbSharp
                         throw new ArgumentException(nameof(type), "The string must be exactly 4 characters long.");
 
                     uint u32Type = 0;
-                    var u32TypeSpan = new Span<byte>(&u32Type, sizeof(uint));
+                    var u32TypeBytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref u32Type, 1));
                     for (int i = 0; i < type.Length; i++)
                     {
                         if (type[i] > byte.MaxValue)
                             throw new ArgumentException(
                                 nameof(type), "The character '" + type[i] + "' is invalid.");
 
-                        u32TypeSpan[i] = (byte)type[i];
+                        u32TypeBytes[i] = (byte)type[i];
                     }
 
-                    // WriteUInt writes u32 as big endian but the type should be 
-                    // little endian so it needs to be reversed for WriteUInt,
-                    // but after calculating the crc
-                    uint crc = Crc32.Calculate(u32TypeSpan);
-                    u32TypeSpan.Reverse();
+                    uint crc = Crc32.Calculate(u32TypeBytes);
+
+                    // WriteUInt writes u32 as big endian but spec requires it to be 
+                    // little endian so it needs to be reversed
+                    u32TypeBytes.Reverse();
 
                     Length = (uint)length;
                     Type = u32Type;
