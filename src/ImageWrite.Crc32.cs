@@ -48,6 +48,8 @@ namespace StbSharp
 
             public static uint Calculate(ReadOnlySpan<byte> buffer, uint baseCrc = ~0u)
             {
+                // TODO: optimize this
+
                 uint crc = baseCrc;
 
                 for (int i = 0; i < buffer.Length; ++i)
