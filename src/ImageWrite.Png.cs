@@ -280,8 +280,8 @@ namespace StbSharp
 
                     uint crc = Crc32.Calculate(u32TypeBytes);
 
-                    // WriteUInt writes u32 as big endian but spec requires it to be 
-                    // little endian so it needs to be reversed
+                    // WriteUInt writes u32 as big endian but PNG spec requires it to be
+                    // little endian so it needs to be reversed before assigning to field
                     u32TypeBytes.Reverse();
 
                     Length = (uint)length;
