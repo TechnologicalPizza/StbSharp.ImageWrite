@@ -63,7 +63,7 @@ namespace StbSharp
                             {
                                 ++len;
                                 s.ReadBytes(rowPixel, rowOffset + (column + 1) * comp);
-                                diff = CRuntime.MemCompare(beginPixel, rowPixel, comp);
+                                diff = CRuntime.MemCompare<byte>(beginPixel, rowPixel, comp);
                                 if (diff != 0)
                                 {
                                     beginPixel.CopyTo(prevPixel);
@@ -72,7 +72,7 @@ namespace StbSharp
                                     for (k = column + 2; (k < x) && (len < 128); ++k)
                                     {
                                         s.ReadBytes(rowPixel, rowOffset + k * comp);
-                                        if (CRuntime.MemCompare(prevPixel, rowPixel, comp) != 0)
+                                        if (CRuntime.MemCompare<byte>(prevPixel, rowPixel, comp) != 0)
                                         {
                                             s.ReadBytes(prevPixel, prevOffset);
                                             prevOffset += comp;
@@ -90,7 +90,7 @@ namespace StbSharp
                                     for (k = column + 2; (k < x) && (len < 128); ++k)
                                     {
                                         s.ReadBytes(rowPixel, rowOffset + k * comp);
-                                        if (CRuntime.MemCompare(beginPixel, rowPixel, comp) == 0)
+                                        if (CRuntime.MemCompare<byte>(beginPixel, rowPixel, comp) == 0)
                                             ++len;
                                         else
                                             break;

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -182,7 +183,7 @@ namespace StbSharp
 
                     #region IHDR chunk
 
-                    var hdrChunk = new PngChunk(13, "IHDR");
+                    var hdrChunk = new PngChunkHeader(13, "IHDR");
                     hdrChunk.WriteHeader(tmp, ref pos);
 
                     hdrChunk.WriteUInt32((uint)w, tmp, ref pos); // width
@@ -211,7 +212,7 @@ namespace StbSharp
 
                     // TODO: make IDAT chunk writing progressive
 
-                    var datChunk = new PngChunk(compressed.Length, "IDAT");
+                    var datChunk = new PngChunkHeader(compressed.Length, "IDAT");
                     datChunk.WriteHeader(tmp, ref pos);
 
                     s.Write(tmp.Slice(0, pos));
@@ -238,7 +239,7 @@ namespace StbSharp
 
                     #region IEND chunk
 
-                    var endChunk = new PngChunk(0, "IEND");
+                    var endChunk = new PngChunkHeader(0, "IEND");
                     endChunk.WriteHeader(tmp, ref pos);
                     endChunk.WriteFooter(tmp, ref pos);
 
@@ -252,13 +253,13 @@ namespace StbSharp
 
             #region PngChunk
 
-            private struct PngChunk
+            private struct PngChunkHeader
             {
                 public readonly uint Length;
                 public readonly uint Type;
                 public uint Crc;
 
-                public unsafe PngChunk(int length, string type)
+                public unsafe PngChunkHeader(int length, string type)
                 {
                     if (length < 0)
                         throw new ArgumentOutOfRangeException(nameof(length), "The value may not be negative.");
@@ -267,26 +268,19 @@ namespace StbSharp
                     if (type.Length != 4)
                         throw new ArgumentException(nameof(type), "The string must be exactly 4 characters long.");
 
-                    uint u32Type = 0;
-                    var u32TypeBytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref u32Type, 1));
+                    Span<byte> typeBytes = stackalloc byte[sizeof(uint)];
                     for (int i = 0; i < type.Length; i++)
                     {
                         if (type[i] > byte.MaxValue)
                             throw new ArgumentException(
                                 nameof(type), "The character '" + type[i] + "' is invalid.");
 
-                        u32TypeBytes[i] = (byte)type[i];
+                        typeBytes[i] = (byte)type[i];
                     }
 
-                    uint crc = Crc32.Calculate(u32TypeBytes);
-
-                    // WriteUInt writes u32 as big endian but PNG spec requires it to be
-                    // little endian so it needs to be reversed before assigning to field
-                    u32TypeBytes.Reverse();
-
                     Length = (uint)length;
-                    Type = u32Type;
-                    Crc = crc;
+                    Type = BinaryPrimitives.ReadUInt32BigEndian(typeBytes);
+                    Crc = Crc32.Calculate(typeBytes);
                 }
 
                 public void WriteHeader(Span<byte> destination, ref int position)
