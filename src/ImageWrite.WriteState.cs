@@ -6,16 +6,16 @@ namespace StbSharp
 {
     public static partial class ImageWrite
     {
-        public delegate void ReadBytePixelsCallback(Span<byte> destination, int dataOffset);
-        public delegate void ReadFloatPixelsCallback(Span<float> destination, int dataOffset);
+        public delegate void GetPixelByteRowCallback(int row, Span<byte> destination);
+        public delegate void GetPixelFloatRowCallback(int row, Span<float> destination);
 
         public delegate void WriteCallback(ReadOnlySpan<byte> data);
         public delegate void WriteProgressCallback(double progress);
 
         public readonly struct WriteState
         {
-            public readonly ReadBytePixelsCallback ReadBytes;
-            public readonly ReadFloatPixelsCallback ReadFloats;
+            public readonly GetPixelByteRowCallback GetByteRow;
+            public readonly GetPixelFloatRowCallback GetFloatRow;
 
             public readonly WriteCallback WriteCallback;
             public readonly WriteProgressCallback ProgressCallback;
@@ -31,8 +31,8 @@ namespace StbSharp
             #region Constructors
 
             public WriteState(
-                ReadBytePixelsCallback readBytePixels,
-                ReadFloatPixelsCallback readFloatPixels,
+                GetPixelByteRowCallback getPixelByteRow,
+                GetPixelFloatRowCallback getPixelFloatRow,
                 WriteCallback writeCallback,
                 WriteProgressCallback progressCallback,
                 int width,
@@ -43,8 +43,8 @@ namespace StbSharp
                 Memory<byte> scratchBuffer)
             {
                 WriteCallback = writeCallback;
-                ReadBytes = readBytePixels;
-                ReadFloats = readFloatPixels;
+                GetByteRow = getPixelByteRow;
+                GetFloatRow = getPixelFloatRow;
                 ProgressCallback = progressCallback;
 
                 Width = width;
@@ -57,8 +57,8 @@ namespace StbSharp
             }
 
             public WriteState(
-                ReadBytePixelsCallback readBytePixels,
-                ReadFloatPixelsCallback readFloatPixels,
+                GetPixelByteRowCallback getPixelByteRow,
+                GetPixelFloatRowCallback getPixelFloatRow,
                 WriteProgressCallback progressCallback,
                 int width,
                 int height,
@@ -67,7 +67,7 @@ namespace StbSharp
                 CancellationToken cancellationToken,
                 Memory<byte> scratchBuffer) :
                 this(
-                    readBytePixels, readFloatPixels, (d) => output.Write(d), progressCallback,
+                    getPixelByteRow, getPixelFloatRow, (d) => output.Write(d), progressCallback,
                     width, height, components,
                     output, cancellationToken, scratchBuffer)
             {
@@ -79,7 +79,7 @@ namespace StbSharp
             {
                 WriteCallback?.Invoke(data);
             }
-            
+
             public void Progress(double percentage)
             {
                 ProgressCallback?.Invoke(percentage);

@@ -26,115 +26,108 @@ namespace StbSharp
                 int w = s.Width;
                 int h = s.Height;
                 int n = s.Components;
+                int pixelCount = w * h;
                 int stride = w * n;
 
                 int forceFilter = WriteForceFilter;
                 if (forceFilter >= 5)
                     forceFilter = -1;
 
+                // TODO: remove this (most often huge) alloc
+                //      consider a Stream where you Write uncompressed pixel data
+                //      and it automatically creates IDAT chunks
+
                 int filtLength = (stride + 1) * h;
                 byte* filt = (byte*)CRuntime.MAlloc(filtLength);
                 if (filt == null)
                     return false;
 
-                sbyte* lineBuffer = (sbyte*)CRuntime.MAlloc(stride);
-                if (lineBuffer == null)
-                {
-                    CRuntime.Free(filt);
-                    return false;
-                }
+                IMemoryHolder compressed;
 
-                s.CancellationToken.ThrowIfCancellationRequested();
-
-                double progressStep = 0;
-                int pixels = w * h;
-                double progressStepCount = pixels / (1000 * Math.Log(pixels, 2));
-                double progressStepSize = Math.Max(1, pixels / progressStepCount);
-
-                ScratchBuffer rowScratch = s.GetScratch(stride);
                 try
                 {
-                    Span<byte> row = rowScratch.AsSpan();
-                    fixed (byte* rowPtr = row)
+                    double progressStep = 0;
+                    double progressStepCount = pixelCount / (1000 * Math.Log(pixelCount, 2));
+                    double progressStepSize = Math.Max(1, pixelCount / progressStepCount);
+
+                    // TODO: use ArrayPool
+                    var previousRowBuffer = new byte[stride];
+                    var rowBuffer = new byte[stride];
+                    var lineBuffer = new byte[stride];
+
+                    void SwapBuffers()
                     {
-                        for (int y = 0; y < h; ++y)
+                        var tmp = previousRowBuffer;
+                        previousRowBuffer = rowBuffer;
+                        rowBuffer = tmp;
+                    }
+
+                    for (int y = 0; y < h; ++y)
+                    {
+                        s.CancellationToken.ThrowIfCancellationRequested();
+
+                        int rowIndex = FlipVerticallyOnWrite != 0 ? h - 1 - y : y;
+                        s.GetByteRow(rowIndex, rowBuffer);
+
+                        int filterType = 0;
+                        if (forceFilter > (-1))
                         {
-                            s.CancellationToken.ThrowIfCancellationRequested();
-
-                            int dataOffset = stride * (FlipVerticallyOnWrite != 0 ? h - 1 - y : y);
-                            s.ReadBytes(row, dataOffset);
-
-                            int filterType = 0;
-                            if (forceFilter > (-1))
+                            filterType = forceFilter;
+                            EncodeLine(previousRowBuffer, rowBuffer, y, n, forceFilter, lineBuffer);
+                        }
+                        else
+                        {
+                            int bestFilter = 0;
+                            int bestFilterValue = 0x7fffffff;
+                            int estimate = 0;
+                            for (filterType = 0; filterType < 5; filterType++)
                             {
-                                filterType = forceFilter;
-                                EncodeLine(rowPtr, stride, w, y, n, forceFilter, lineBuffer);
-                            }
-                            else
-                            {
-                                int bestFilter = 0;
-                                int bestFilterValue = 0x7fffffff;
-                                int est = 0;
-                                int i = 0;
-                                for (filterType = 0; filterType < 5; filterType++)
+                                EncodeLine(previousRowBuffer, rowBuffer, y, n, filterType, lineBuffer);
+
+                                estimate = 0;
+                                for (int i = 0; i < lineBuffer.Length; ++i)
+                                    estimate += CRuntime.FastAbs(lineBuffer[i]);
+
+                                if (estimate < bestFilterValue)
                                 {
-                                    EncodeLine(rowPtr, stride, w, y, n, filterType, lineBuffer);
-
-                                    est = 0;
-                                    for (i = 0; i < stride; ++i)
-                                        est += CRuntime.FastAbs(lineBuffer[i]);
-
-                                    if (est < bestFilterValue)
-                                    {
-                                        bestFilterValue = est;
-                                        bestFilter = filterType;
-                                    }
-
-                                    s.CancellationToken.ThrowIfCancellationRequested();
+                                    bestFilterValue = estimate;
+                                    bestFilter = filterType;
                                 }
 
-                                if (filterType != bestFilter)
-                                {
-                                    EncodeLine(rowPtr, stride, w, y, n, bestFilter, lineBuffer);
-                                    filterType = bestFilter;
-                                }
+                                s.CancellationToken.ThrowIfCancellationRequested();
                             }
 
-                            s.CancellationToken.ThrowIfCancellationRequested();
-
-                            filt[y * (stride + 1)] = (byte)filterType;
-                            CRuntime.MemCopy(filt + y * (stride + 1) + 1, lineBuffer, stride);
-
-                            // TODO: tidy this up a notch so it's easier to reuse in other implementations
-                            if (s.ProgressCallback != null)
+                            if (filterType != bestFilter)
                             {
-                                progressStep += w;
-                                while (progressStep >= progressStepSize)
-                                {
-                                    s.Progress(y / (double)h * 0.5);
-                                    progressStep -= progressStepSize;
-                                }
+                                EncodeLine(previousRowBuffer, rowBuffer, y, n, bestFilter, lineBuffer);
+                                filterType = bestFilter;
+                            }
+                        }
+
+                        s.CancellationToken.ThrowIfCancellationRequested();
+
+                        SwapBuffers();
+
+                        var filtSlice = new Span<byte>(filt + y * (stride + 1), stride + 1);
+                        filtSlice[0] = (byte)filterType;
+                        lineBuffer.CopyTo(filtSlice.Slice(1));
+
+                        // TODO: tidy this up a notch so it's easier to reuse in other implementations
+                        if (s.ProgressCallback != null)
+                        {
+                            progressStep += w;
+                            while (progressStep >= progressStepSize)
+                            {
+                                s.Progress(y / (double)h * 0.5);
+                                progressStep -= progressStepSize;
                             }
                         }
                     }
-                }
-                catch
-                {
-                    CRuntime.Free(filt);
-                    throw;
-                }
-                finally
-                {
-                    CRuntime.Free(lineBuffer);
-                    rowScratch.Dispose();
-                }
 
-                s.CancellationToken.ThrowIfCancellationRequested();
+                    s.CancellationToken.ThrowIfCancellationRequested();
 
-                // TODO: redesign chunk encoding to write partial chunks instead of one large
-                IMemoryHolder compressed;
-                try
-                {
+                    // TODO: redesign chunk encoding to write partial chunks instead of one large
+
                     Action<double> weightedProgress = null;
                     if (s.ProgressCallback != null)
                     {
@@ -152,7 +145,6 @@ namespace StbSharp
                 finally
                 {
                     CRuntime.Free(filt);
-                    s.CancellationToken.ThrowIfCancellationRequested();
                 }
 
                 using (compressed)
@@ -324,8 +316,12 @@ namespace StbSharp
             #endregion
 
             public static void EncodeLine(
-                byte* pixels, int strideBytes, int width,
-                int y, int n, int filterType, sbyte* lineBuffer)
+                ReadOnlySpan<byte> previousRow,
+                ReadOnlySpan<byte> row,
+                int y,
+                int n,
+                int filterType,
+                Span<byte> scanline)
             {
                 int* mapping = stackalloc int[5];
                 mapping[0] = 0;
@@ -341,79 +337,69 @@ namespace StbSharp
                 firstmap[3] = 5;
                 firstmap[4] = 6;
 
-                int* mymap = (y != 0) ? mapping : firstmap;
-                int type = mymap[filterType];
-                int stride = width * n;
-                byte* z = pixels;
-
+                int* filterMap = (y != 0) ? mapping : firstmap;
+                int type = filterMap[filterType];
                 if (type == 0)
                 {
-                    CRuntime.MemCopy(lineBuffer, z, stride);
+                    row.CopyTo(scanline);
                     return;
                 }
 
-                int signedStride = FlipVerticallyOnWrite != 0 ? -strideBytes : strideBytes;
-                int i = 0;
                 switch (type)
                 {
                     case 1:
                     case 5:
                     case 6:
-                        if (n == 4)
-                            *(int*)lineBuffer = *(int*)z;
-                        else
-                            for (; i < n; ++i)
-                                lineBuffer[i] = (sbyte)z[i];
+                        row.Slice(0, n).CopyTo(scanline);
                         break;
 
                     case 2:
-                        for (; i < n; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - z[i - signedStride]);
+                        for (int i = 0; i < n; ++i)
+                            scanline[i] = (byte)(row[i] - previousRow[i]);
                         break;
 
                     case 3:
-                        for (; i < n; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - (z[i - signedStride] / 2));
+                        for (int i = 0; i < n; ++i)
+                            scanline[i] = (byte)(row[i] - (previousRow[i] / 2));
                         break;
 
                     case 4:
-                        for (; i < n; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(0, z[i - signedStride], 0));
+                        for (int i = 0; i < n; ++i)
+                            scanline[i] = (byte)(row[i] - CRuntime.Paeth32(0, previousRow[i], 0));
                         break;
                 }
 
-                i = n;
                 switch (type)
                 {
                     case 1:
-                        for (; i < stride; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - z[i - n]);
+                        for (int i = n; i < scanline.Length; ++i)
+                            scanline[i] = (byte)(row[i] - row[i - n]);
                         break;
 
                     case 2:
-                        for (; i < stride; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - z[i - signedStride]);
+                        for (int i = n; i < scanline.Length; ++i)
+                            scanline[i] = (byte)(row[i] - previousRow[i]);
                         break;
 
                     case 3:
-                        for (; i < stride; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - ((z[i - n] + z[i - signedStride]) / 2));
+                        for (int i = n; i < scanline.Length; ++i)
+                            scanline[i] = (byte)(row[i] - ((row[i - n] + previousRow[i]) / 2));
                         break;
 
                     case 4:
-                        for (; i < stride; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(
-                                z[i - n], z[i - signedStride], z[i - signedStride - n]));
+                        for (int i = n; i < scanline.Length; ++i)
+                            scanline[i] = (byte)(row[i] - CRuntime.Paeth32(
+                                row[i - n], previousRow[i], previousRow[i - n]));
                         break;
 
                     case 5:
-                        for (; i < stride; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - (z[i - n] / 2));
+                        for (int i = n; i < scanline.Length; ++i)
+                            scanline[i] = (byte)(row[i] - (row[i - n] / 2));
                         break;
 
                     case 6:
-                        for (; i < stride; ++i)
-                            lineBuffer[i] = (sbyte)(z[i] - CRuntime.Paeth32(z[i - n], 0, 0));
+                        for (int i = n; i < scanline.Length; ++i)
+                            scanline[i] = (byte)(row[i] - CRuntime.Paeth32(row[i - n], 0, 0));
                         break;
                 }
             }

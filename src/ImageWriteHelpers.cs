@@ -42,23 +42,22 @@ namespace StbSharp
 
         public static void WriteByte(this in WriteState s, byte value)
         {
-            Span<byte> tmp = stackalloc byte[] { value };
-            s.Write(tmp);
+            s.Write(stackalloc[] { value });
         }
 
         /// <summary>
         /// Used for writing raw data with headers.
         /// </summary>
-        public static int OutFile(this in WriteState s,
+        public static bool OutFile(this in WriteState s,
             bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int pad,
             string format, ReadOnlySpan<long> values)
         {
             if (s.Width <= 0 || s.Height <= 0)
-                return 0;
+                return false;
 
             WriteFormat(s, format, values);
             WritePixels(s, flipRgb, verticalDirection, alphaDirection, pad, expandMono);
-            return 1;
+            return true;
         }
 
         public static void WriteUInt(uint value, Span<byte> destination, ref int position)
@@ -68,7 +67,7 @@ namespace StbSharp
         }
 
         public static int WritePixel(
-            bool flipRgb, int alphaDirection, bool expandMono, 
+            bool flipRgb, int alphaDirection, bool expandMono,
             ReadOnlySpan<byte> pixel, Span<byte> destination)
         {
             int offset = 0;
@@ -123,7 +122,7 @@ namespace StbSharp
             return offset;
         }
 
-        public static void WritePixels(this in WriteState s, 
+        public static void WritePixels(this in WriteState s,
             bool flipRgb, int verticalDirection, int alphaDirection, int scanlinePad, bool expandMono)
         {
             if (scanlinePad < 0 || scanlinePad > 4)
@@ -132,57 +131,50 @@ namespace StbSharp
             if (s.Height <= 0)
                 return;
 
-            int i;
-            int j;
-            int jEnd;
+            int row;
+            int rowEnd;
             if (verticalDirection < 0)
             {
-                jEnd = -1;
-                j = s.Height - 1;
+                rowEnd = -1;
+                row = s.Height - 1;
             }
             else
             {
-                jEnd = s.Height;
-                j = 0;
+                rowEnd = s.Height;
+                row = 0;
             }
 
-            int x = s.Width;
+            int width = s.Width;
             int comp = s.Components;
-            int stride = x * comp;
+            int stride = width * comp;
 
             int scratchSize = stride + scanlinePad;
             ScratchBuffer scratch = s.GetScratch(scratchSize);
-            try
-            {
-                Span<byte> scratchSpan = scratch.AsSpan(0, scratchSize);
-                Span<byte> scanlinePadSpan = scratchSpan.Slice(stride, scanlinePad);
-                scanlinePadSpan.Fill(0);
+            Span<byte> scratchSpan = scratch.AsSpan(0, scratchSize);
+            Span<byte> scanlinePadSpan = scratchSpan.Slice(stride, scanlinePad);
+            scanlinePadSpan.Clear();
 
-                for (; j != jEnd; j += verticalDirection)
+            for (; row != rowEnd; row += verticalDirection)
+            {
+                s.GetByteRow.Invoke(row, scratchSpan);
+
+                int offset = 0;
+                for (int i = 0; i < width; ++i)
                 {
-                    s.ReadBytes(scratchSpan, j * stride);
-                    int offset = 0;
-                    for (i = 0; i < x; ++i)
-                    {
-                        var pixel = scratchSpan.Slice(i * comp, comp);
-                        var output = scratchSpan.Slice(offset, comp);
-                        offset += WritePixel(flipRgb, alphaDirection, expandMono, pixel, output);
-                    }
-
-                    if (offset != stride)
-                    {
-                        s.Write(scratchSpan.Slice(0, offset));
-                        s.Write(scanlinePadSpan);
-                    }
-                    else
-                    {
-                        s.Write(scratchSpan);
-                    }
+                    var pixel = scratchSpan.Slice(i * comp, comp);
+                    var output = scratchSpan.Slice(offset, comp);
+                    offset += WritePixel(flipRgb, alphaDirection, expandMono, pixel, output);
                 }
-            }
-            finally
-            {
-                scratch.Dispose();
+
+                if (offset != stride)
+                {
+                    s.Write(scratchSpan.Slice(0, offset));
+                    s.Write(scanlinePadSpan);
+                }
+                else
+                {
+                    s.Write(scratchSpan);
+                }
             }
         }
     }

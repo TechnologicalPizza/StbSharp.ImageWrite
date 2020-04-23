@@ -7,60 +7,35 @@ namespace StbSharp
     {
         public static class Hdr
         {
-            public static readonly ReadOnlyMemory<byte> FileHeader =
+            public static readonly ReadOnlyMemory<byte> FileHeaderBase =
                 Encoding.UTF8.GetBytes("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n");
 
             public static int WriteCore(in WriteState s)
             {
-                int x = s.Width;
-                int y = s.Height;
-                if (y <= 0 || x <= 0)
+                int width = s.Width;
+                int height = s.Height;
+                if (height <= 0 || width <= 0)
                     return 0;
 
-                s.Write(FileHeader.Span);
+                byte[] headerBytes = Encoding.UTF8.GetBytes(string.Format(
+                    "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", height.ToString(), width.ToString()));
 
-                byte[] bytes = Encoding.UTF8.GetBytes(string.Format(
-                    "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", y.ToString(), x.ToString()));
-                s.Write(bytes);
+                s.Write(FileHeaderBase.Span);
+                s.Write(headerBytes);
 
                 ScratchBuffer scratch = default;
-                try
+                if (width < 8 || width >= s.ScratchBuffer.Length / 4)
+                    scratch = s.GetScratch(width * 4);
+
+                var rowBuffer = new float[width];
+                var rowBufferSpan = rowBuffer.AsSpan();
+
+                for (int row = 0; row < height; row++)
                 {
-                    if (x < 8 || x >= s.ScratchBuffer.Length / 4) // TODO: try to remove "x < 8" condition
-                        scratch = s.GetScratch(x * 4);
-
-                    for (int line = 0; line < y; line++)
-                        WriteHdrScanline(s, line, scratch);
-
-                    return 1;
+                    s.GetFloatRow.Invoke(row, rowBufferSpan);
+                    WriteHdrScanline(s, row, rowBufferSpan, scratch);
                 }
-                finally
-                {
-                    scratch.Dispose();
-                }
-            }
-
-            public static void LinearToRgbe(Span<byte> output, ReadOnlySpan<float> linear)
-            {
-                float maxcomp = linear[0] > (linear[1] > linear[2] ? linear[1] : linear[2])
-                    ? linear[0]
-                    : (linear[1] > linear[2] ? linear[1] : linear[2]);
-
-                if (maxcomp < 1e-32f)
-                {
-                    for (int i = 0; i < 4; i++)
-                        output[i] = 0;
-                }
-                else
-                {
-                    float normalize = (float)(CRuntime.FractionExponent(
-                        maxcomp, out int exponent) * 256.0 / maxcomp);
-
-                    output[0] = (byte)(linear[0] * normalize);
-                    output[1] = (byte)(linear[1] * normalize);
-                    output[2] = (byte)(linear[2] * normalize);
-                    output[3] = (byte)(exponent + 128);
-                }
+                return 1;
             }
 
             public static void WriteRunData(in WriteState s, int length, byte databyte)
@@ -82,85 +57,81 @@ namespace StbSharp
                 s.Write(data);
             }
 
-            public static void WriteHdrScanline(in WriteState s, int y, ScratchBuffer scratch)
+            public static void WriteHdrScanline(
+                in WriteState s, int row, Span<float> data, in ScratchBuffer buffer)
             {
-                int w = s.Width;
+                int width = s.Width;
                 int n = s.Components;
-                int x;
-
-                Span<byte> scanlineheader = stackalloc byte[4];
-                scanlineheader[0] = 2;
-                scanlineheader[1] = 2;
-                scanlineheader[2] = (byte)((w & 0xff00) >> 8);
-                scanlineheader[3] = (byte)(w & 0x00ff);
+                
+                ReadOnlySpan<byte> scanlineHeader = stackalloc byte[4] {
+                    2,
+                    2,
+                    (byte)((width & 0xff00) >> 8),
+                    (byte)(width & 0x00ff),
+                };
 
                 Span<byte> rgbe = stackalloc byte[4];
                 Span<float> linear = stackalloc float[3];
 
-                Span<float> scanline = stackalloc float[n];
-                if (w < 8 || w >= s.ScratchBuffer.Length / 4)
+                if (width < 8 || width >= s.ScratchBuffer.Length / 4)
                 {
-                    for (x = 0; x < w; x++)
+                    for (int x = 0; x < width; x++)
                     {
-                        s.ReadFloats(scanline, (x + y * w) * n);
-
                         switch (n)
                         {
                             case 4:
                             case 3:
-                                linear[0] = scanline[x * n + 0];
-                                linear[1] = scanline[x * n + 1];
-                                linear[2] = scanline[x * n + 2];
+                                linear[0] = data[x * n + 0];
+                                linear[1] = data[x * n + 1];
+                                linear[2] = data[x * n + 2];
                                 break;
 
                             default:
-                                linear[0] = linear[1] = linear[2] = scanline[x * n];
+                                linear[0] = linear[1] = linear[2] = data[x * n];
                                 break;
                         }
 
-                        LinearToRgbe(rgbe, linear);
+                        LinearToRgbe(linear, rgbe);
                         s.Write(rgbe);
                     }
                 }
                 else
                 {
-                    Span<byte> scratchSpan = scratch.AsSpan();
-                    for (x = 0; x < w; x++)
+                    Span<byte> bufferSpan = buffer.AsSpan();
+                    for (int x = 0; x < width; x++)
                     {
-                        s.ReadFloats(scanline, (x + y * w) * n);
-
                         switch (n)
                         {
                             case 4:
                             case 3:
-                                linear[0] = scanline[x * n + 0];
-                                linear[1] = scanline[x * n + 1];
-                                linear[2] = scanline[x * n + 2];
+                                linear[0] = data[x * n + 0];
+                                linear[1] = data[x * n + 1];
+                                linear[2] = data[x * n + 2];
                                 break;
 
                             default:
-                                linear[0] = linear[1] = linear[2] = scanline[x * n];
+                                linear[0] = linear[1] = linear[2] = data[x * n];
                                 break;
                         }
 
-                        LinearToRgbe(rgbe, linear);
-                        scratchSpan[x + w * 0] = rgbe[0];
-                        scratchSpan[x + w * 1] = rgbe[1];
-                        scratchSpan[x + w * 2] = rgbe[2];
-                        scratchSpan[x + w * 3] = rgbe[3];
+                        LinearToRgbe(linear, rgbe);
+                        bufferSpan[x + width * 0] = rgbe[0];
+                        bufferSpan[x + width * 1] = rgbe[1];
+                        bufferSpan[x + width * 2] = rgbe[2];
+                        bufferSpan[x + width * 3] = rgbe[3];
                     }
 
-                    s.Write(scanlineheader);
+                    s.Write(scanlineHeader);
 
                     for (int c = 0; c < 4; c++)
                     {
-                        Span<byte> comp = scratch.AsSpan(w * c);
+                        Span<byte> comp = bufferSpan.Slice(width * c);
 
-                        x = 0;
-                        while (x < w)
+                        int x = 0;
+                        while (x < width)
                         {
                             int r = x;
-                            while ((r + 2) < w)
+                            while ((r + 2) < width)
                             {
                                 if (comp[r] == comp[r + 1] &&
                                     comp[r] == comp[r + 2])
@@ -168,8 +139,8 @@ namespace StbSharp
                                 r++;
                             }
 
-                            if (r + 2 >= w)
-                                r = w;
+                            if (r + 2 >= width)
+                                r = width;
 
                             while (x < r)
                             {
@@ -180,9 +151,9 @@ namespace StbSharp
                                 x += len;
                             }
 
-                            if (r + 2 < w)
+                            if (r + 2 < width)
                             {
-                                while ((r < w) && (comp[r] == comp[x]))
+                                while ((r < width) && (comp[r] == comp[x]))
                                     r++;
 
                                 while (x < r)
@@ -196,6 +167,29 @@ namespace StbSharp
                             }
                         }
                     }
+                }
+            }
+
+            public static void LinearToRgbe(ReadOnlySpan<float> source, Span<byte> destination)
+            {
+                float maxcomp = source[0] > (source[1] > source[2] ? source[1] : source[2])
+                    ? source[0]
+                    : (source[1] > source[2] ? source[1] : source[2]);
+
+                if (maxcomp < 1e-32f)
+                {
+                    for (int i = 0; i < 4; i++)
+                        destination[i] = 0;
+                }
+                else
+                {
+                    float normalize = (float)(CRuntime.FractionExponent(
+                        maxcomp, out int exponent) * 256.0 / maxcomp);
+
+                    destination[0] = (byte)(source[0] * normalize);
+                    destination[1] = (byte)(source[1] * normalize);
+                    destination[2] = (byte)(source[2] * normalize);
+                    destination[3] = (byte)(exponent + 128);
                 }
             }
         }

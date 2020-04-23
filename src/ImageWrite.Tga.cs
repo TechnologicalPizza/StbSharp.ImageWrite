@@ -6,92 +6,103 @@ namespace StbSharp
     {
         public static class Tga
         {
-            public static int WriteCore(in WriteState s, bool writeRLE)
+            public static bool WriteCore(in WriteState s, bool writeRLE)
             {
-                int x = s.Width;
-                int y = s.Height;
+                int width = s.Width;
+                int height = s.Height;
                 int comp = s.Components;
 
                 int hasAlpha = (comp == 2 || comp == 4) ? 1 : 0;
                 int colorbytes = hasAlpha != 0 ? comp - 1 : comp;
                 int format = colorbytes < 2 ? 3 : 2;
-                if ((y < 0) || (x < 0))
-                    return 0;
+                if ((height < 0) || (width < 0))
+                    return false;
 
                 if (!writeRLE)
                 {
-                    var headers = new long[]
+                    ReadOnlySpan<long> headers = stackalloc long[]
                     {
-                        0, 0, format,
-                        0, 0, 0,
-                        0, 0, x, y,
-                        (colorbytes + hasAlpha) * 8, hasAlpha * 8
+                        0,
+                        0,
+                        format,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        width,
+                        height,
+                        (colorbytes + hasAlpha) * 8,
+                        hasAlpha * 8
                     };
-                    return ImageWriteHelpers.OutFile(s, true, -1, false, hasAlpha, 0, "111 221 2222 11", headers);
+
+                    return ImageWriteHelpers.OutFile(
+                        s, true, -1, false, hasAlpha, 0, "111 221 2222 11", headers);
                 }
                 else
                 {
-                    var headers = new long[]
+                    ReadOnlySpan<long> headers = stackalloc long[]
                     {
-                        0, 0, format + 8,
-                        0, 0, 0,
-                        0, 0, x, y,
-                        (colorbytes + hasAlpha) * 8, hasAlpha * 8
+                        0,
+                        0,
+                        format + 8,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        width,
+                        height,
+                        (colorbytes + hasAlpha) * 8,
+                        hasAlpha * 8
                     };
                     ImageWriteHelpers.WriteFormat(s, "111 221 2222 11", headers);
 
-                    // TODO: read rows into a row buffer instead
-                    Span<byte> rowPixel = stackalloc byte[comp];
-                    Span<byte> beginPixel = stackalloc byte[comp];
-                    Span<byte> prevPixel = stackalloc byte[comp];
-                    Span<byte> outputBuffer = stackalloc byte[4];
-                    
-                    int k;
-                    for (int row = y - 1; row >= 0; --row)
+                    var rowScratch = s.GetScratch(width * comp);
+                    var rowSpan = rowScratch.AsSpan();
+                    Span<byte> outBuffer = stackalloc byte[4];
+
+                    for (int y = height; y-- > 0;)
                     {
-                        int rowOffset = row * x * comp;
+                        s.GetByteRow(y, rowSpan);
 
                         int len;
-                        for (int column = 0; column < x; column += len)
+                        for (int x = 0; x < width; x += len)
                         {
-                            int beginOffset = rowOffset + column * comp;
-                            s.ReadBytes(beginPixel, beginOffset);
+                            var begin = rowSpan.Slice(x * comp);
 
                             int diff = 1;
                             len = 1;
-                            if (column < (x - 1))
+                            if (x < (width - 1))
                             {
-                                ++len;
-                                s.ReadBytes(rowPixel, rowOffset + (column + 1) * comp);
-                                diff = CRuntime.MemCompare<byte>(beginPixel, rowPixel, comp);
+                                len++;
+                                var next = rowSpan.Slice((x + 1) * comp);
+                                diff = CRuntime.MemCompare<byte>(begin, next, comp);
                                 if (diff != 0)
                                 {
-                                    beginPixel.CopyTo(prevPixel);
-                                    int prevOffset = beginOffset;
-
-                                    for (k = column + 2; (k < x) && (len < 128); ++k)
+                                    var prev = begin;
+                                    for (int k = x + 2; (k < width) && (len < 128); ++k)
                                     {
-                                        s.ReadBytes(rowPixel, rowOffset + k * comp);
-                                        if (CRuntime.MemCompare<byte>(prevPixel, rowPixel, comp) != 0)
+                                        var pixel = rowSpan.Slice(k * comp);
+                                        if (CRuntime.MemCompare<byte>(prev, pixel, comp) != 0)
                                         {
-                                            s.ReadBytes(prevPixel, prevOffset);
-                                            prevOffset += comp;
-                                            ++len;
+                                            prev = prev.Slice(comp);
+                                            len++;
                                         }
                                         else
                                         {
-                                            --len;
+                                            len--;
                                             break;
                                         }
                                     }
                                 }
                                 else
                                 {
-                                    for (k = column + 2; (k < x) && (len < 128); ++k)
+                                    for (int k = x + 2; (k < width) && (len < 128); ++k)
                                     {
-                                        s.ReadBytes(rowPixel, rowOffset + k * comp);
-                                        if (CRuntime.MemCompare<byte>(beginPixel, rowPixel, comp) == 0)
-                                            ++len;
+                                        var pixel = rowSpan.Slice(k * comp);
+                                        if (CRuntime.MemCompare<byte>(begin, pixel, comp) == 0)
+                                            len++;
                                         else
                                             break;
                                     }
@@ -102,25 +113,26 @@ namespace StbSharp
                             {
                                 s.WriteByte((byte)((len - 1) & 0xff));
 
-                                for (k = 0; k < len; ++k)
+                                for (int k = 0; k < len; k++)
                                 {
-                                    s.ReadBytes(beginPixel, beginOffset + k * comp);
-                                    int pixlen = ImageWriteHelpers.WritePixel(true, hasAlpha, false, beginPixel, outputBuffer);
-                                    s.Write(outputBuffer.Slice(0, pixlen));
+                                    var pixel = begin.Slice(k * comp, comp);
+                                    int count = ImageWriteHelpers.WritePixel(true, hasAlpha, false, pixel, outBuffer);
+                                    s.Write(outBuffer.Slice(0, count));
                                 }
                             }
                             else
                             {
                                 s.WriteByte((byte)((len - 129) & 0xff));
 
-                                int pixlen = ImageWriteHelpers.WritePixel(true, hasAlpha, false, beginPixel, outputBuffer);
-                                s.Write(outputBuffer.Slice(0, pixlen));
+                                var pixel = begin.Slice(0, comp);
+                                int count = ImageWriteHelpers.WritePixel(true, hasAlpha, false, pixel, outBuffer);
+                                s.Write(outBuffer.Slice(0, count));
                             }
                         }
                     }
                 }
 
-                return 1;
+                return true;
             }
         }
     }

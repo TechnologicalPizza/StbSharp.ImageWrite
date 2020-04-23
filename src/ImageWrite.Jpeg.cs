@@ -155,25 +155,20 @@ namespace StbSharp
             #endregion
 
             public static void WriteBits(
-                in WriteState s, int* bitBufP, int* bitCntP, ushort bs0, ushort bs1)
+                in WriteState s, int* bitBuf, int* bitCnt, ushort bs0, ushort bs1)
             {
-                int bitBuf = *bitBufP;
-                int bitCnt = *bitCntP;
-                bitCnt += bs1;
-                bitBuf |= bs0 << (24 - bitCnt);
-                while (bitCnt >= 8)
+                *bitCnt += bs1;
+                *bitBuf |= bs0 << (24 - *bitCnt);
+                while (*bitCnt >= 8)
                 {
-                    byte c = (byte)((bitBuf >> 16) & 255);
+                    byte c = (byte)((*bitBuf >> 16) & 255);
                     ImageWriteHelpers.WriteByte(s, c);
                     if (c == 255)
                         ImageWriteHelpers.WriteByte(s, 0);
 
-                    bitBuf <<= 8;
-                    bitCnt -= 8;
+                    *bitBuf <<= 8;
+                    *bitCnt -= 8;
                 }
-
-                *bitBufP = bitBuf;
-                *bitCntP = bitCnt;
             }
 
             public static void DCT(
@@ -253,7 +248,6 @@ namespace StbSharp
                 M16zeroes[1] = HTAC[0xF0, 1];
 
                 int dataOff;
-                int i;
                 int diff;
                 int end0pos;
                 int* DU = stackalloc int[64];
@@ -273,7 +267,7 @@ namespace StbSharp
                         &CDU[dataOff + 32], &CDU[dataOff + 40], &CDU[dataOff + 48], &CDU[dataOff + 56]);
                 }
 
-                for (i = 0; i < 64; ++i)
+                for (int i = 0; i < 64; ++i)
                 {
                     float v = CDU[i] * fdtbl[i];
                     DU[ZigZag[i]] = (int)(v < 0 ? v - 0.5f : v + 0.5f);
@@ -300,7 +294,7 @@ namespace StbSharp
                     return DU[0];
                 }
 
-                for (i = 1; i <= end0pos; ++i)
+                for (int i = 1; i <= end0pos; ++i)
                 {
                     int startpos = i;
                     int nrzeroes;
@@ -328,39 +322,35 @@ namespace StbSharp
                 return DU[0];
             }
 
-            public static int WriteCore(in WriteState s, bool readFloatPixels, int quality)
+            public static bool WriteCore(in WriteState s, bool useFloatPixels, int quality)
             {
                 int width = s.Width;
                 int height = s.Height;
                 int comp = s.Components;
 
-                if ((s.ReadBytes == null) || (width == 0) || (height == 0) || (comp > 4) || (comp < 1))
-                    return 0;
-
-                int row;
-                int col;
-                int i;
-                int k;
-                float* fdtbl_Y = stackalloc float[64];
-                float* fdtbl_UV = stackalloc float[64];
-                Span<byte> YTable = stackalloc byte[64];
-                Span<byte> UVTable = stackalloc byte[64];
+                if ((s.GetByteRow == null) || (width == 0) || (height == 0) || (comp > 4) || (comp < 1))
+                    return false;
 
                 quality = quality != 0 ? quality : 90;
                 quality = quality < 1 ? 1 : quality > 100 ? 100 : quality;
                 quality = quality < 50 ? 5000 / quality : 200 - quality * 2;
 
-                for (i = 0; i < 64; ++i)
+                float* fdtbl_Y = stackalloc float[64];
+                float* fdtbl_UV = stackalloc float[64];
+                Span<byte> YTable = stackalloc byte[64];
+                Span<byte> UVTable = stackalloc byte[64];
+
+                for (int i = 0; i < 64; i++)
                 {
                     int yti = (YQT[i] * quality + 50) / 100;
-                    YTable[ZigZag[i]] = (byte)(yti < 1 ? 1 : yti > 255 ? 255 : yti);
                     int uvti = (UVQT[i] * quality + 50) / 100;
+                    YTable[ZigZag[i]] = (byte)(yti < 1 ? 1 : yti > 255 ? 255 : yti);
                     UVTable[ZigZag[i]] = (byte)(uvti < 1 ? 1 : uvti > 255 ? 255 : uvti);
                 }
 
-                for (row = 0, k = 0; row < 8; ++row)
+                for (int row = 0, k = 0; row < 8; row++)
                 {
-                    for (col = 0; col < 8; ++col, ++k)
+                    for (int col = 0; col < 8; col++, k++)
                     {
                         fdtbl_Y[k] = 1 / (YTable[ZigZag[k]] * aasf[row] * aasf[col]);
                         fdtbl_UV[k] = 1 / (UVTable[ZigZag[k]] * aasf[row] * aasf[col]);
@@ -429,55 +419,49 @@ namespace StbSharp
                     int bitBuf = 0;
                     int bitCnt = 0;
                     int stride = width * comp;
-                    int x;
-                    int y;
-                    int pos;
+                    int ofsG = comp > 2 ? 1 : 0;
+                    int ofsB = comp > 2 ? 2 : 0;
                     float* YDU = stackalloc float[64];
                     float* UDU = stackalloc float[64];
                     float* VDU = stackalloc float[64];
-                    Span<byte> byteDataBuffer = stackalloc byte[comp > 2 ? 3 : 1];
-                    Span<float> floatDataBuffer = stackalloc float[comp > 2 ? 3 : 1];
-                    float r, g, b;
 
-                    for (y = 0; y < height; y += 8)
+                    float[] floatRowBuf = null;
+                    byte[] byteRowBuf = null;
+                    
+                    if (useFloatPixels)
+                        floatRowBuf = new float[stride];
+                    else
+                        byteRowBuf = new byte[stride];
+
+                    for (int y = 0; y < height; y += 8)
                     {
-                        for (x = 0; x < width; x += 8)
+                        for (int x = 0; x < width; x += 8)
                         {
-                            for (row = y, pos = 0; row < (y + 8); ++row)
+                            for (int row = y, pos = 0; row < (y + 8); row++)
                             {
-                                for (col = x; col < (x + 8); ++col, ++pos)
+                                int clampedRow = (row < height) ? row : height - 1;
+                                if (useFloatPixels)
+                                    s.GetFloatRow(clampedRow, floatRowBuf);
+                                else
+                                    s.GetByteRow(clampedRow, byteRowBuf);
+
+                                for (int col = x; col < (x + 8); col++, pos++)
                                 {
-                                    int p = row * stride + col * comp;
+                                    int p = ((col < width) ? col : (width - 1)) * comp;
 
-                                    if (row >= height)
-                                        p -= stride * (row + 1 - height);
-
-                                    if (col >= width)
-                                        p -= comp * (col + 1 - width);
-
-                                    if (readFloatPixels)
+                                    float r, g, b;
+                                    if (useFloatPixels)
                                     {
-                                        s.ReadFloats(floatDataBuffer, p);
-                                        if (comp > 2)
-                                        {
-                                            r = floatDataBuffer[0] * byte.MaxValue;
-                                            g = floatDataBuffer[1] * byte.MaxValue;
-                                            b = floatDataBuffer[2] * byte.MaxValue;
-                                        }
-                                        else
-                                            r = g = b = floatDataBuffer[0] * byte.MaxValue;
+                                        // TODO: fix these byte.max muls
+                                        r = floatRowBuf[p + 0] * byte.MaxValue;
+                                        g = floatRowBuf[p + ofsG] * byte.MaxValue;
+                                        b = floatRowBuf[p + ofsB] * byte.MaxValue;
                                     }
                                     else
                                     {
-                                        s.ReadBytes(byteDataBuffer, p);
-                                        if (comp > 2)
-                                        {
-                                            r = byteDataBuffer[0];
-                                            g = byteDataBuffer[1];
-                                            b = byteDataBuffer[2];
-                                        }
-                                        else
-                                            r = g = b = byteDataBuffer[0];
+                                        r = byteRowBuf[p + 0];
+                                        g = byteRowBuf[p + ofsG];
+                                        b = byteRowBuf[p + ofsB];
                                     }
 
                                     YDU[pos] = +0.29900f * r + 0.58700f * g + 0.11400f * b - 128;
@@ -497,7 +481,7 @@ namespace StbSharp
 
                 ImageWriteHelpers.WriteByte(s, 0xFF);
                 ImageWriteHelpers.WriteByte(s, 0xD9);
-                return 1;
+                return true;
             }
         }
     }
