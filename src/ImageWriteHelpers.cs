@@ -40,11 +40,6 @@ namespace StbSharp
             }
         }
 
-        public static void WriteByte(this in WriteState s, byte value)
-        {
-            s.Write(stackalloc[] { value });
-        }
-
         /// <summary>
         /// Used for writing raw data with headers.
         /// </summary>

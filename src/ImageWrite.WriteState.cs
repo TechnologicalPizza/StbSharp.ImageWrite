@@ -80,6 +80,11 @@ namespace StbSharp
                 WriteCallback?.Invoke(data);
             }
 
+            public void WriteByte(byte value)
+            {
+                Write(stackalloc[] { value });
+            }
+
             public void Progress(double percentage)
             {
                 ProgressCallback?.Invoke(percentage);

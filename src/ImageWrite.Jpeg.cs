@@ -8,18 +8,18 @@ namespace StbSharp
         {
             #region Constants
 
-            public static byte[] ZigZag =
+            public static ReadOnlySpan<byte> ZigZag => new byte[]
             {
                 0, 1, 5, 6, 14, 15, 27, 28, 2, 4, 7, 13, 16, 26, 29, 42, 3, 8, 12, 17, 25, 30, 41,
                 43, 9, 11, 18, 24, 31, 40, 44, 53, 10, 19, 23, 32, 39, 45, 52, 54, 20, 22, 33, 38,
                 46, 51, 55, 60, 21, 34, 37, 47, 50, 56, 59, 61, 35, 36, 48, 49, 57, 58, 62, 63
             };
 
-            public static byte[] std_DcLuminanceNrcodes = { 0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 };
-            public static byte[] std_DcLuminanceValues = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
-            public static byte[] std_AcLuminanceNrcodes = { 0, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
+            public static ReadOnlySpan<byte> std_DcLuminanceNrcodes => new byte[] { 0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 };
+            public static ReadOnlySpan<byte> std_DcLuminanceValues => new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+            public static ReadOnlySpan<byte> std_AcLuminanceNrcodes => new byte[] { 0, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
 
-            public static byte[] std_AcLuminanceValues =
+            public static ReadOnlySpan<byte> std_AcLuminanceValues => new byte[]
             {
                 0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07, 0x22, 0x71,
                 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42, 0xb1, 0xc1, 0x15, 0x52, 0xd1, 0xf0, 0x24, 0x33, 0x62, 0x72,
@@ -32,11 +32,11 @@ namespace StbSharp
                 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa
             };
 
-            public static byte[] std_DcChrominanceNrcodes = { 0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 };
-            public static byte[] std_DcChrominanceValues = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
-            public static byte[] std_AcChrominanceNrcodes = { 0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77 };
+            public static ReadOnlySpan<byte> std_DcChrominanceNrcodes => new byte[] { 0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 };
+            public static ReadOnlySpan<byte> std_DcChrominanceValues => new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+            public static ReadOnlySpan<byte> std_AcChrominanceNrcodes => new byte[] { 0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77 };
 
-            public static byte[] std_AcChrominanceValues =
+            public static ReadOnlySpan<byte> std_AcChrominanceValues => new byte[]
             {
                 0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21, 0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71, 0x13, 0x22,
                 0x32, 0x81, 0x08, 0x14, 0x42, 0x91, 0xa1, 0xb1, 0xc1, 0x09, 0x23, 0x33, 0x52, 0xf0, 0x15, 0x62, 0x72, 0xd1,
@@ -144,15 +144,356 @@ namespace StbSharp
                 0.541196100f * 2.828427125f, 0.275899379f * 2.828427125f
             };
 
-            public static byte[] head0 =
+            public static ReadOnlySpan<byte> head0 => new byte[]
             {
                 0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F',
                 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xFF, 0xDB, 0, 0x84, 0
             };
 
-            public static byte[] head2 = { 0xFF, 0xDA, 0, 0xC, 3, 1, 0, 2, 0x11, 3, 0x11, 0, 0x3F, 0 };
+            public static ReadOnlySpan<byte> head2 => new byte[]
+            {
+                0xFF, 0xDA, 0, 0xC, 3, 1, 0, 2, 0x11, 3, 0x11, 0, 0x3F, 0
+            };
 
             #endregion
+
+            public static void stbiw__jpg_writeBits(
+                in WriteState s, int* bitBufP, int* bitCntP, ushort bs0, ushort bs1)
+            {
+                int bitBuf = (int)(*bitBufP);
+                int bitCnt = (int)(*bitCntP);
+                bitCnt += (int)(bs1);
+                bitBuf |= (int)(bs0 << (24 - bitCnt));
+                while ((bitCnt) >= (8))
+                {
+                    byte c = (byte)((bitBuf >> 16) & 255);
+                    s.WriteByte((byte)(c));
+                    if ((c) == (255))
+                    {
+                        s.WriteByte((byte)(0));
+                    }
+                    bitBuf <<= 8;
+                    bitCnt -= (int)(8);
+                }
+                *bitBufP = (int)(bitBuf);
+                *bitCntP = (int)(bitCnt);
+            }
+
+            public static void stbiw__jpg_DCT(float* d0p, float* d1p, float* d2p, float* d3p, float* d4p, float* d5p, float* d6p, float* d7p)
+            {
+                float d0 = (float)(*d0p);
+                float d1 = (float)(*d1p);
+                float d2 = (float)(*d2p);
+                float d3 = (float)(*d3p);
+                float d4 = (float)(*d4p);
+                float d5 = (float)(*d5p);
+                float d6 = (float)(*d6p);
+                float d7 = (float)(*d7p);
+                float z1 = 0;
+                float z2 = 0;
+                float z3 = 0;
+                float z4 = 0;
+                float z5 = 0;
+                float z11 = 0;
+                float z13 = 0;
+                float tmp0 = (float)(d0 + d7);
+                float tmp7 = (float)(d0 - d7);
+                float tmp1 = (float)(d1 + d6);
+                float tmp6 = (float)(d1 - d6);
+                float tmp2 = (float)(d2 + d5);
+                float tmp5 = (float)(d2 - d5);
+                float tmp3 = (float)(d3 + d4);
+                float tmp4 = (float)(d3 - d4);
+                float tmp10 = (float)(tmp0 + tmp3);
+                float tmp13 = (float)(tmp0 - tmp3);
+                float tmp11 = (float)(tmp1 + tmp2);
+                float tmp12 = (float)(tmp1 - tmp2);
+                d0 = (float)(tmp10 + tmp11);
+                d4 = (float)(tmp10 - tmp11);
+                z1 = (float)((tmp12 + tmp13) * 0.707106781f);
+                d2 = (float)(tmp13 + z1);
+                d6 = (float)(tmp13 - z1);
+                tmp10 = (float)(tmp4 + tmp5);
+                tmp11 = (float)(tmp5 + tmp6);
+                tmp12 = (float)(tmp6 + tmp7);
+                z5 = (float)((tmp10 - tmp12) * 0.382683433f);
+                z2 = (float)(tmp10 * 0.541196100f + z5);
+                z4 = (float)(tmp12 * 1.306562965f + z5);
+                z3 = (float)(tmp11 * 0.707106781f);
+                z11 = (float)(tmp7 + z3);
+                z13 = (float)(tmp7 - z3);
+                *d5p = (float)(z13 + z2);
+                *d3p = (float)(z13 - z2);
+                *d1p = (float)(z11 + z4);
+                *d7p = (float)(z11 - z4);
+                *d0p = (float)(d0);
+                *d2p = (float)(d2);
+                *d4p = (float)(d4);
+                *d6p = (float)(d6);
+            }
+
+            public static void stbiw__jpg_calcBits(int val, ushort* bits)
+            {
+                int tmp1 = (int)((val) < (0) ? -val : val);
+                val = (int)((val) < (0) ? val - 1 : val);
+                bits[1] = (ushort)(1);
+                while ((tmp1 >>= 1) != 0)
+                {
+                    ++bits[1];
+                }
+                bits[0] = (ushort)(val & ((1 << bits[1]) - 1));
+            }
+
+            public static int stbiw__jpg_processDU(
+                in WriteState s, int* bitBuf, int* bitCnt, float* CDU, float* fdtbl, int DC, ushort[,] HTDC, ushort[,] HTAC)
+            {
+                ushort* EOB = stackalloc ushort[2] {
+                    (ushort)(HTAC[0x00, 0]),
+                    (ushort)(HTAC[0x00, 1])
+                };
+
+                ushort* M16zeroes = stackalloc ushort[2] {
+                    (ushort)(HTAC[0xF0, 0]),
+                    (ushort)(HTAC[0xF0, 1])
+                };
+
+                for (int dataOff = (int)(0); (dataOff) < (64); dataOff += (int)(8))
+                {
+                    stbiw__jpg_DCT(
+                        &CDU[dataOff], &CDU[dataOff + 1], &CDU[dataOff + 2], &CDU[dataOff + 3],
+                        &CDU[dataOff + 4], &CDU[dataOff + 5], &CDU[dataOff + 6], &CDU[dataOff + 7]);
+                }
+                for (int dataOff = (int)(0); (dataOff) < (8); ++dataOff)
+                {
+                    stbiw__jpg_DCT(
+                        &CDU[dataOff], &CDU[dataOff + 8], &CDU[dataOff + 16], &CDU[dataOff + 24],
+                        &CDU[dataOff + 32], &CDU[dataOff + 40], &CDU[dataOff + 48], &CDU[dataOff + 56]);
+                }
+
+                int* DU = stackalloc int[64];
+                for (int i = (int)(0); (i) < (64); ++i)
+                {
+                    float v = (float)(CDU[i] * fdtbl[i]);
+                    DU[ZigZag[i]] = ((int)((v) < (0) ? v - 0.5f : v + 0.5f));
+                }
+
+                int diff = (int)(DU[0] - DC);
+                if ((diff) == (0))
+                {
+                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, HTDC[0, 0], HTDC[0, 1]);
+                }
+                else
+                {
+                    ushort* bits = stackalloc ushort[2];
+                    stbiw__jpg_calcBits((int)(diff), bits);
+                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, HTDC[bits[1], 0], HTDC[bits[1], 1]);
+                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, bits[0], bits[1]);
+                }
+
+                int end0pos = (int)(63);
+
+                for (; ((end0pos) > (0)) && ((DU[end0pos]) == (0)); --end0pos)
+                {
+                }
+                if ((end0pos) == (0))
+                {
+                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, EOB[0], EOB[1]);
+                    return (int)(DU[0]);
+                }
+
+                for (int i = (int)(1); i <= end0pos; ++i)
+                {
+                    int startpos = (int)(i);
+                    int nrzeroes = 0;
+                    ushort* bits = stackalloc ushort[2];
+                    for (; ((DU[i]) == (0)) && (i <= end0pos); ++i)
+                    {
+                    }
+                    nrzeroes = (int)(i - startpos);
+                    if ((nrzeroes) >= (16))
+                    {
+                        int lng = (int)(nrzeroes >> 4);
+                        int nrmarker = 0;
+                        for (nrmarker = (int)(1); nrmarker <= lng; ++nrmarker)
+                        {
+                            stbiw__jpg_writeBits(s, bitBuf, bitCnt, M16zeroes[0], M16zeroes[1]);
+                        }
+                        nrzeroes &= (int)(15);
+                    }
+                    stbiw__jpg_calcBits((int)(DU[i]), bits);
+                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, HTAC[(nrzeroes << 4) + bits[1], 0], HTAC[(nrzeroes << 4) + bits[1], 1]);
+                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, bits[0], bits[1]);
+                }
+                if (end0pos != 63)
+                {
+                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, EOB[0], EOB[1]);
+                }
+
+                return (int)(DU[0]);
+            }
+
+            public static bool WriteCore(in WriteState s, int quality, bool useFloatPixels)
+            {
+                int width = s.Width;
+                int height = s.Height;
+                int comp = s.Components;
+
+                int row = 0;
+                int col = 0;
+                int i = 0;
+                int k = 0;
+                float* fdtbl_Y = stackalloc float[64];
+                float* fdtbl_UV = stackalloc float[64];
+                Span<byte> YTable = stackalloc byte[64];
+                Span<byte> UVTable = stackalloc byte[64];
+
+                var tmp = new byte[width * height * comp];
+
+                for (int y = 0; y < height; y++)
+                {
+                    s.GetByteRow(y, tmp.AsSpan(y * width * comp, width * comp));
+                }
+
+                fixed (byte* data = tmp)
+                {
+
+                    if (((((data == null) || (width == 0)) || (height == 0)) || ((comp) > (4))) || ((comp) < (1)))
+                        return false;
+
+                    quality = (int)((quality) != 0 ? quality : 90);
+                    quality = (int)((quality) < (1) ? 1 : (quality) > (100) ? 100 : quality);
+                    quality = (int)((quality) < (50) ? 5000 / quality : 200 - quality * 2);
+                    for (i = (int)(0); (i) < (64); ++i)
+                    {
+                        int uvti = 0;
+                        int yti = (int)((YQT[i] * quality + 50) / 100);
+                        YTable[ZigZag[i]] = ((byte)((yti) < (1) ? 1 : (yti) > (255) ? 255 : yti));
+                        uvti = (int)((UVQT[i] * quality + 50) / 100);
+                        UVTable[ZigZag[i]] = ((byte)((uvti) < (1) ? 1 : (uvti) > (255) ? 255 : uvti));
+                    }
+                    for (row = (int)(0), k = (int)(0); (row) < (8); ++row)
+                    {
+                        for (col = (int)(0); (col) < (8); ++col, ++k)
+                        {
+                            fdtbl_Y[k] = (float)(1 / (YTable[ZigZag[k]] * aasf[row] * aasf[col]));
+                            fdtbl_UV[k] = (float)(1 / (UVTable[ZigZag[k]] * aasf[row] * aasf[col]));
+                        }
+                    }
+                    {
+                        ReadOnlySpan<byte> head1 = stackalloc byte[24] {
+                            (byte)(0xFF),
+                            (byte)(0xC0),
+                            (byte)(0),
+                            (byte)(0x11),
+                            (byte)(8),
+                            (byte)(height >> 8),
+                            (byte)((height) & 0xff),
+                            (byte)(width >> 8),
+                            (byte)((width) & 0xff),
+                            (byte)(3),
+                            (byte)(1),
+                            (byte)(0x11),
+                            (byte)(0),
+                            (byte)(2),
+                            (byte)(0x11),
+                            (byte)(1),
+                            (byte)(3),
+                            (byte)(0x11),
+                            (byte)(1),
+                            (byte)(0xFF),
+                            (byte)(0xC4),
+                            (byte)(0x01),
+                            (byte)(0xA2),
+                            (byte)(0)
+                        };
+
+                        s.Write(head0);
+                        s.Write(YTable);
+                        s.WriteByte((byte)(1));
+                        s.Write(UVTable);
+                        s.Write(head1);
+
+                        s.Write(std_DcLuminanceNrcodes.Slice(1, std_DcChrominanceNrcodes.Length - 1));
+
+                        s.Write(std_DcLuminanceValues.Slice(0, std_DcChrominanceValues.Length));
+
+                        s.WriteByte((byte)(0x10));
+
+                        s.Write(std_AcLuminanceNrcodes.Slice(1));
+
+                        s.Write(std_AcLuminanceValues.Slice(0, std_AcChrominanceValues.Length));
+
+                        s.WriteByte((byte)(1));
+
+                        s.Write(std_DcChrominanceNrcodes.Slice(1));
+
+                        s.Write(std_DcChrominanceValues);
+
+                        s.WriteByte((byte)(0x11));
+
+                        s.Write(std_AcChrominanceNrcodes.Slice(1));
+
+                        s.Write(std_AcChrominanceValues);
+
+                        s.Write(head2);
+                    }
+
+                    {
+                        ushort* fillBits = stackalloc ushort[2];
+                        fillBits[0] = (ushort)(0x7F);
+                        fillBits[1] = (ushort)(7);
+                        byte* imageData = (byte*)(data);
+                        int DCY = (int)(0);
+                        int DCU = (int)(0);
+                        int DCV = (int)(0);
+                        int bitBuf = (int)(0);
+                        int bitCnt = (int)(0);
+                        int ofsG = (int)((comp) > (2) ? 1 : 0);
+                        int ofsB = (int)((comp) > (2) ? 2 : 0);
+                        int x = 0;
+                        int y = 0;
+                        int pos = 0;
+                        float* YDU = stackalloc float[64];
+                        float* UDU = stackalloc float[64];
+                        float* VDU = stackalloc float[64];
+
+                        for (y = (int)(0); (y) < (height); y += (int)(8))
+                        {
+                            for (x = (int)(0); (x) < (width); x += (int)(8))
+                            {
+                                for (row = (int)(y), pos = (int)(0); (row) < (y + 8); ++row)
+                                {
+                                    int clamped_row = (int)(((row) < (height)) ? row : height - 1);
+                                    int base_p = clamped_row * width * comp;
+                                    for (col = (int)(x); (col) < (x + 8); ++col, ++pos)
+                                    {
+                                        float r = 0;
+                                        float g = 0;
+                                        float b = 0;
+                                        int p = (int)(base_p + (((col) < (width)) ? col : (width - 1)) * comp);
+                                        r = (float)(imageData[p + 0]);
+                                        g = (float)(imageData[p + ofsG]);
+                                        b = (float)(imageData[p + ofsB]);
+                                        YDU[pos] = (float)(+0.29900f * r + 0.58700f * g + 0.11400f * b - 128);
+                                        UDU[pos] = (float)(-0.16874f * r - 0.33126f * g + 0.50000f * b);
+                                        VDU[pos] = (float)(+0.50000f * r - 0.41869f * g - 0.08131f * b);
+                                    }
+                                }
+                                DCY = (int)(stbiw__jpg_processDU(s, &bitBuf, &bitCnt, YDU, fdtbl_Y, (int)(DCY), YDC_HT, YAC_HT));
+                                DCU = (int)(stbiw__jpg_processDU(s, &bitBuf, &bitCnt, UDU, fdtbl_UV, (int)(DCU), UVDC_HT, UVAC_HT));
+                                DCV = (int)(stbiw__jpg_processDU(s, &bitBuf, &bitCnt, VDU, fdtbl_UV, (int)(DCV), UVDC_HT, UVAC_HT));
+                            }
+                        }
+                        stbiw__jpg_writeBits(s, &bitBuf, &bitCnt, fillBits[0], fillBits[1]);
+                    }
+
+                    s.WriteByte((byte)(0xFF));
+                    s.WriteByte((byte)(0xD9));
+                    return true;
+                }
+            }
+
+            /*
 
             public static void WriteBits(
                 in WriteState s, int* bitBuf, int* bitCnt, ushort bs0, ushort bs1)
@@ -427,7 +768,7 @@ namespace StbSharp
 
                     float[] floatRowBuf = null;
                     byte[] byteRowBuf = null;
-                    
+
                     if (useFloatPixels)
                         floatRowBuf = new float[stride];
                     else
@@ -483,6 +824,9 @@ namespace StbSharp
                 ImageWriteHelpers.WriteByte(s, 0xD9);
                 return true;
             }
+        }
+
+        */
         }
     }
 }
