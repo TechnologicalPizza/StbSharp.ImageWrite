@@ -1,10 +1,12 @@
 using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace StbSharp
 {
     public static partial class ImageWrite
     {
-        public static unsafe partial class Jpeg
+        public static partial class Jpeg
         {
             #region Constants
 
@@ -139,391 +141,53 @@ namespace StbSharp
 
             public static float[] aasf =
             {
-                1f * 2.828427125f, 1.387039845f * 2.828427125f, 1.306562965f * 2.828427125f,
-                1.175875602f * 2.828427125f, 1f * 2.828427125f, 0.785694958f * 2.828427125f,
-                0.541196100f * 2.828427125f, 0.275899379f * 2.828427125f
+                1.000000000f * 2.828427125f,
+                1.387039845f * 2.828427125f,
+                1.306562965f * 2.828427125f,
+                1.175875602f * 2.828427125f,
+                1.000000000f * 2.828427125f,
+                0.785694958f * 2.828427125f,
+                0.541196100f * 2.828427125f,
+                0.275899379f * 2.828427125f
             };
 
-            public static ReadOnlySpan<byte> head0 => new byte[]
+            public static ReadOnlySpan<byte> Head0 => new byte[]
             {
                 0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F',
                 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xFF, 0xDB, 0, 0x84, 0
             };
 
-            public static ReadOnlySpan<byte> head2 => new byte[]
+            public static ReadOnlySpan<byte> Head2 => new byte[]
             {
                 0xFF, 0xDA, 0, 0xC, 3, 1, 0, 2, 0x11, 3, 0x11, 0, 0x3F, 0
             };
 
             #endregion
 
-            public static void stbiw__jpg_writeBits(
-                in WriteState s, int* bitBufP, int* bitCntP, ushort bs0, ushort bs1)
+            public static void WriteBits(
+                in WriteState s, ref int bitBuf, ref int bitCnt, ushort bs0, ushort bs1)
             {
-                int bitBuf = (int)(*bitBufP);
-                int bitCnt = (int)(*bitCntP);
-                bitCnt += (int)(bs1);
-                bitBuf |= (int)(bs0 << (24 - bitCnt));
-                while ((bitCnt) >= (8))
+                bitCnt += bs1;
+                bitBuf |= bs0 << (24 - bitCnt);
+                while (bitCnt >= 8)
                 {
                     byte c = (byte)((bitBuf >> 16) & 255);
-                    s.WriteByte((byte)(c));
-                    if ((c) == (255))
+                    s.WriteByte(c);
+                    if (c == 255)
                     {
-                        s.WriteByte((byte)(0));
+                        s.WriteByte(0);
                     }
                     bitBuf <<= 8;
-                    bitCnt -= (int)(8);
-                }
-                *bitBufP = (int)(bitBuf);
-                *bitCntP = (int)(bitCnt);
-            }
-
-            public static void stbiw__jpg_DCT(float* d0p, float* d1p, float* d2p, float* d3p, float* d4p, float* d5p, float* d6p, float* d7p)
-            {
-                float d0 = (float)(*d0p);
-                float d1 = (float)(*d1p);
-                float d2 = (float)(*d2p);
-                float d3 = (float)(*d3p);
-                float d4 = (float)(*d4p);
-                float d5 = (float)(*d5p);
-                float d6 = (float)(*d6p);
-                float d7 = (float)(*d7p);
-                float z1 = 0;
-                float z2 = 0;
-                float z3 = 0;
-                float z4 = 0;
-                float z5 = 0;
-                float z11 = 0;
-                float z13 = 0;
-                float tmp0 = (float)(d0 + d7);
-                float tmp7 = (float)(d0 - d7);
-                float tmp1 = (float)(d1 + d6);
-                float tmp6 = (float)(d1 - d6);
-                float tmp2 = (float)(d2 + d5);
-                float tmp5 = (float)(d2 - d5);
-                float tmp3 = (float)(d3 + d4);
-                float tmp4 = (float)(d3 - d4);
-                float tmp10 = (float)(tmp0 + tmp3);
-                float tmp13 = (float)(tmp0 - tmp3);
-                float tmp11 = (float)(tmp1 + tmp2);
-                float tmp12 = (float)(tmp1 - tmp2);
-                d0 = (float)(tmp10 + tmp11);
-                d4 = (float)(tmp10 - tmp11);
-                z1 = (float)((tmp12 + tmp13) * 0.707106781f);
-                d2 = (float)(tmp13 + z1);
-                d6 = (float)(tmp13 - z1);
-                tmp10 = (float)(tmp4 + tmp5);
-                tmp11 = (float)(tmp5 + tmp6);
-                tmp12 = (float)(tmp6 + tmp7);
-                z5 = (float)((tmp10 - tmp12) * 0.382683433f);
-                z2 = (float)(tmp10 * 0.541196100f + z5);
-                z4 = (float)(tmp12 * 1.306562965f + z5);
-                z3 = (float)(tmp11 * 0.707106781f);
-                z11 = (float)(tmp7 + z3);
-                z13 = (float)(tmp7 - z3);
-                *d5p = (float)(z13 + z2);
-                *d3p = (float)(z13 - z2);
-                *d1p = (float)(z11 + z4);
-                *d7p = (float)(z11 - z4);
-                *d0p = (float)(d0);
-                *d2p = (float)(d2);
-                *d4p = (float)(d4);
-                *d6p = (float)(d6);
-            }
-
-            public static void stbiw__jpg_calcBits(int val, ushort* bits)
-            {
-                int tmp1 = (int)((val) < (0) ? -val : val);
-                val = (int)((val) < (0) ? val - 1 : val);
-                bits[1] = (ushort)(1);
-                while ((tmp1 >>= 1) != 0)
-                {
-                    ++bits[1];
-                }
-                bits[0] = (ushort)(val & ((1 << bits[1]) - 1));
-            }
-
-            public static int stbiw__jpg_processDU(
-                in WriteState s, int* bitBuf, int* bitCnt, float* CDU, float* fdtbl, int DC, ushort[,] HTDC, ushort[,] HTAC)
-            {
-                ushort* EOB = stackalloc ushort[2] {
-                    (ushort)(HTAC[0x00, 0]),
-                    (ushort)(HTAC[0x00, 1])
-                };
-
-                ushort* M16zeroes = stackalloc ushort[2] {
-                    (ushort)(HTAC[0xF0, 0]),
-                    (ushort)(HTAC[0xF0, 1])
-                };
-
-                for (int dataOff = (int)(0); (dataOff) < (64); dataOff += (int)(8))
-                {
-                    stbiw__jpg_DCT(
-                        &CDU[dataOff], &CDU[dataOff + 1], &CDU[dataOff + 2], &CDU[dataOff + 3],
-                        &CDU[dataOff + 4], &CDU[dataOff + 5], &CDU[dataOff + 6], &CDU[dataOff + 7]);
-                }
-                for (int dataOff = (int)(0); (dataOff) < (8); ++dataOff)
-                {
-                    stbiw__jpg_DCT(
-                        &CDU[dataOff], &CDU[dataOff + 8], &CDU[dataOff + 16], &CDU[dataOff + 24],
-                        &CDU[dataOff + 32], &CDU[dataOff + 40], &CDU[dataOff + 48], &CDU[dataOff + 56]);
-                }
-
-                int* DU = stackalloc int[64];
-                for (int i = (int)(0); (i) < (64); ++i)
-                {
-                    float v = (float)(CDU[i] * fdtbl[i]);
-                    DU[ZigZag[i]] = ((int)((v) < (0) ? v - 0.5f : v + 0.5f));
-                }
-
-                int diff = (int)(DU[0] - DC);
-                if ((diff) == (0))
-                {
-                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, HTDC[0, 0], HTDC[0, 1]);
-                }
-                else
-                {
-                    ushort* bits = stackalloc ushort[2];
-                    stbiw__jpg_calcBits((int)(diff), bits);
-                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, HTDC[bits[1], 0], HTDC[bits[1], 1]);
-                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, bits[0], bits[1]);
-                }
-
-                int end0pos = (int)(63);
-
-                for (; ((end0pos) > (0)) && ((DU[end0pos]) == (0)); --end0pos)
-                {
-                }
-                if ((end0pos) == (0))
-                {
-                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, EOB[0], EOB[1]);
-                    return (int)(DU[0]);
-                }
-
-                for (int i = (int)(1); i <= end0pos; ++i)
-                {
-                    int startpos = (int)(i);
-                    int nrzeroes = 0;
-                    ushort* bits = stackalloc ushort[2];
-                    for (; ((DU[i]) == (0)) && (i <= end0pos); ++i)
-                    {
-                    }
-                    nrzeroes = (int)(i - startpos);
-                    if ((nrzeroes) >= (16))
-                    {
-                        int lng = (int)(nrzeroes >> 4);
-                        int nrmarker = 0;
-                        for (nrmarker = (int)(1); nrmarker <= lng; ++nrmarker)
-                        {
-                            stbiw__jpg_writeBits(s, bitBuf, bitCnt, M16zeroes[0], M16zeroes[1]);
-                        }
-                        nrzeroes &= (int)(15);
-                    }
-                    stbiw__jpg_calcBits((int)(DU[i]), bits);
-                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, HTAC[(nrzeroes << 4) + bits[1], 0], HTAC[(nrzeroes << 4) + bits[1], 1]);
-                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, bits[0], bits[1]);
-                }
-                if (end0pos != 63)
-                {
-                    stbiw__jpg_writeBits(s, bitBuf, bitCnt, EOB[0], EOB[1]);
-                }
-
-                return (int)(DU[0]);
-            }
-
-            public static bool WriteCore(in WriteState s, int quality, bool useFloatPixels)
-            {
-                int width = s.Width;
-                int height = s.Height;
-                int comp = s.Components;
-
-                int row = 0;
-                int col = 0;
-                int i = 0;
-                int k = 0;
-                float* fdtbl_Y = stackalloc float[64];
-                float* fdtbl_UV = stackalloc float[64];
-                Span<byte> YTable = stackalloc byte[64];
-                Span<byte> UVTable = stackalloc byte[64];
-
-                var tmp = new byte[width * height * comp];
-
-                for (int y = 0; y < height; y++)
-                {
-                    s.GetByteRow(y, tmp.AsSpan(y * width * comp, width * comp));
-                }
-
-                fixed (byte* data = tmp)
-                {
-
-                    if (((((data == null) || (width == 0)) || (height == 0)) || ((comp) > (4))) || ((comp) < (1)))
-                        return false;
-
-                    quality = (int)((quality) != 0 ? quality : 90);
-                    quality = (int)((quality) < (1) ? 1 : (quality) > (100) ? 100 : quality);
-                    quality = (int)((quality) < (50) ? 5000 / quality : 200 - quality * 2);
-                    for (i = (int)(0); (i) < (64); ++i)
-                    {
-                        int uvti = 0;
-                        int yti = (int)((YQT[i] * quality + 50) / 100);
-                        YTable[ZigZag[i]] = ((byte)((yti) < (1) ? 1 : (yti) > (255) ? 255 : yti));
-                        uvti = (int)((UVQT[i] * quality + 50) / 100);
-                        UVTable[ZigZag[i]] = ((byte)((uvti) < (1) ? 1 : (uvti) > (255) ? 255 : uvti));
-                    }
-                    for (row = (int)(0), k = (int)(0); (row) < (8); ++row)
-                    {
-                        for (col = (int)(0); (col) < (8); ++col, ++k)
-                        {
-                            fdtbl_Y[k] = (float)(1 / (YTable[ZigZag[k]] * aasf[row] * aasf[col]));
-                            fdtbl_UV[k] = (float)(1 / (UVTable[ZigZag[k]] * aasf[row] * aasf[col]));
-                        }
-                    }
-                    {
-                        ReadOnlySpan<byte> head1 = stackalloc byte[24] {
-                            (byte)(0xFF),
-                            (byte)(0xC0),
-                            (byte)(0),
-                            (byte)(0x11),
-                            (byte)(8),
-                            (byte)(height >> 8),
-                            (byte)((height) & 0xff),
-                            (byte)(width >> 8),
-                            (byte)((width) & 0xff),
-                            (byte)(3),
-                            (byte)(1),
-                            (byte)(0x11),
-                            (byte)(0),
-                            (byte)(2),
-                            (byte)(0x11),
-                            (byte)(1),
-                            (byte)(3),
-                            (byte)(0x11),
-                            (byte)(1),
-                            (byte)(0xFF),
-                            (byte)(0xC4),
-                            (byte)(0x01),
-                            (byte)(0xA2),
-                            (byte)(0)
-                        };
-
-                        s.Write(head0);
-                        s.Write(YTable);
-                        s.WriteByte((byte)(1));
-                        s.Write(UVTable);
-                        s.Write(head1);
-
-                        s.Write(std_DcLuminanceNrcodes.Slice(1, std_DcChrominanceNrcodes.Length - 1));
-
-                        s.Write(std_DcLuminanceValues.Slice(0, std_DcChrominanceValues.Length));
-
-                        s.WriteByte((byte)(0x10));
-
-                        s.Write(std_AcLuminanceNrcodes.Slice(1));
-
-                        s.Write(std_AcLuminanceValues.Slice(0, std_AcChrominanceValues.Length));
-
-                        s.WriteByte((byte)(1));
-
-                        s.Write(std_DcChrominanceNrcodes.Slice(1));
-
-                        s.Write(std_DcChrominanceValues);
-
-                        s.WriteByte((byte)(0x11));
-
-                        s.Write(std_AcChrominanceNrcodes.Slice(1));
-
-                        s.Write(std_AcChrominanceValues);
-
-                        s.Write(head2);
-                    }
-
-                    {
-                        ushort* fillBits = stackalloc ushort[2];
-                        fillBits[0] = (ushort)(0x7F);
-                        fillBits[1] = (ushort)(7);
-                        byte* imageData = (byte*)(data);
-                        int DCY = (int)(0);
-                        int DCU = (int)(0);
-                        int DCV = (int)(0);
-                        int bitBuf = (int)(0);
-                        int bitCnt = (int)(0);
-                        int ofsG = (int)((comp) > (2) ? 1 : 0);
-                        int ofsB = (int)((comp) > (2) ? 2 : 0);
-                        int x = 0;
-                        int y = 0;
-                        int pos = 0;
-                        float* YDU = stackalloc float[64];
-                        float* UDU = stackalloc float[64];
-                        float* VDU = stackalloc float[64];
-
-                        for (y = (int)(0); (y) < (height); y += (int)(8))
-                        {
-                            for (x = (int)(0); (x) < (width); x += (int)(8))
-                            {
-                                for (row = (int)(y), pos = (int)(0); (row) < (y + 8); ++row)
-                                {
-                                    int clamped_row = (int)(((row) < (height)) ? row : height - 1);
-                                    int base_p = clamped_row * width * comp;
-                                    for (col = (int)(x); (col) < (x + 8); ++col, ++pos)
-                                    {
-                                        float r = 0;
-                                        float g = 0;
-                                        float b = 0;
-                                        int p = (int)(base_p + (((col) < (width)) ? col : (width - 1)) * comp);
-                                        r = (float)(imageData[p + 0]);
-                                        g = (float)(imageData[p + ofsG]);
-                                        b = (float)(imageData[p + ofsB]);
-                                        YDU[pos] = (float)(+0.29900f * r + 0.58700f * g + 0.11400f * b - 128);
-                                        UDU[pos] = (float)(-0.16874f * r - 0.33126f * g + 0.50000f * b);
-                                        VDU[pos] = (float)(+0.50000f * r - 0.41869f * g - 0.08131f * b);
-                                    }
-                                }
-                                DCY = (int)(stbiw__jpg_processDU(s, &bitBuf, &bitCnt, YDU, fdtbl_Y, (int)(DCY), YDC_HT, YAC_HT));
-                                DCU = (int)(stbiw__jpg_processDU(s, &bitBuf, &bitCnt, UDU, fdtbl_UV, (int)(DCU), UVDC_HT, UVAC_HT));
-                                DCV = (int)(stbiw__jpg_processDU(s, &bitBuf, &bitCnt, VDU, fdtbl_UV, (int)(DCV), UVDC_HT, UVAC_HT));
-                            }
-                        }
-                        stbiw__jpg_writeBits(s, &bitBuf, &bitCnt, fillBits[0], fillBits[1]);
-                    }
-
-                    s.WriteByte((byte)(0xFF));
-                    s.WriteByte((byte)(0xD9));
-                    return true;
+                    bitCnt -= 8;
                 }
             }
 
-            /*
-
-            public static void WriteBits(
-                in WriteState s, int* bitBuf, int* bitCnt, ushort bs0, ushort bs1)
+            public static void CalculateDCT(
+                ref float d0, ref float d1, ref float d2, ref float d3,
+                ref float d4, ref float d5, ref float d6, ref float d7)
             {
-                *bitCnt += bs1;
-                *bitBuf |= bs0 << (24 - *bitCnt);
-                while (*bitCnt >= 8)
-                {
-                    byte c = (byte)((*bitBuf >> 16) & 255);
-                    ImageWriteHelpers.WriteByte(s, c);
-                    if (c == 255)
-                        ImageWriteHelpers.WriteByte(s, 0);
+                float z1, z2, z3, z4, z5, z11, z13;
 
-                    *bitBuf <<= 8;
-                    *bitCnt -= 8;
-                }
-            }
-
-            public static void DCT(
-                float* d0p, float* d1p, float* d2p, float* d3p,
-                float* d4p, float* d5p, float* d6p, float* d7p)
-            {
-                float d0 = *d0p;
-                float d1 = *d1p;
-                float d2 = *d2p;
-                float d3 = *d3p;
-                float d4 = *d4p;
-                float d5 = *d5p;
-                float d6 = *d6p;
-                float d7 = *d7p;
                 float tmp0 = d0 + d7;
                 float tmp7 = d0 - d7;
                 float tmp1 = d1 + d6;
@@ -532,228 +196,243 @@ namespace StbSharp
                 float tmp5 = d2 - d5;
                 float tmp3 = d3 + d4;
                 float tmp4 = d3 - d4;
+
+                // Even part
                 float tmp10 = tmp0 + tmp3;
                 float tmp13 = tmp0 - tmp3;
                 float tmp11 = tmp1 + tmp2;
                 float tmp12 = tmp1 - tmp2;
+
+                // Odd part
+                float tmp14 = tmp4 + tmp5;
+                float tmp15 = tmp5 + tmp6;
+                float tmp16 = tmp6 + tmp7;
+
+                // The rotator is modified from fig 4-8 to avoid extra negations.
+                z5 = (tmp14 - tmp16) * 0.382683433f; // c6
+                z2 = tmp14 * 0.541196100f + z5; // c2-c6
+                z4 = tmp16 * 1.306562965f + z5; // c2+c6
+                z3 = tmp15 * 0.707106781f; // c4
+                z1 = (tmp12 + tmp13) * 0.707106781f; // c4
+                z11 = tmp7 + z3;
+                z13 = tmp7 - z3;
+
                 d0 = tmp10 + tmp11;
-                d4 = tmp10 - tmp11;
-                tmp10 = tmp4 + tmp5;
-                tmp11 = tmp5 + tmp6;
-                tmp12 = tmp6 + tmp7;
-
-                float z1 = (tmp12 + tmp13) * 0.707106781f;
+                d1 = z11 + z4;
                 d2 = tmp13 + z1;
+                d3 = z13 - z2;
+                d4 = tmp10 - tmp11;
+                d5 = z13 + z2;
                 d6 = tmp13 - z1;
-
-                float z5 = (tmp10 - tmp12) * 0.382683433f;
-                float z2 = tmp10 * 0.541196100f + z5;
-                float z4 = tmp12 * 1.306562965f + z5;
-                float z3 = tmp11 * 0.707106781f;
-                float z11 = tmp7 + z3;
-                float z13 = tmp7 - z3;
-
-                *d5p = z13 + z2;
-                *d3p = z13 - z2;
-                *d1p = z11 + z4;
-                *d7p = z11 - z4;
-                *d0p = d0;
-                *d2p = d2;
-                *d4p = d4;
-                *d6p = d6;
+                d7 = z11 - z4;
             }
 
-            public static void CalcBits(int val, ushort* bits)
+            public static void CalcBits(int val, Span<ushort> bits)
             {
                 int tmp1 = val < 0 ? -val : val;
                 val = val < 0 ? val - 1 : val;
                 bits[1] = 1;
                 while ((tmp1 >>= 1) != 0)
                 {
-                    ++bits[1];
+                    bits[1]++;
                 }
-
                 bits[0] = (ushort)(val & ((1 << bits[1]) - 1));
             }
 
             public static int ProcessDU(
-                in WriteState s, int* bitBuf, int* bitCnt, float* CDU,
-                float* fdtbl, int DC, ushort[,] HTDC, ushort[,] HTAC)
+                in WriteState s, ref int bitBuf, ref int bitCnt,
+                Span<float> CDU, ReadOnlySpan<float> fdtbl, int DC, ushort[,] HTDC, ushort[,] HTAC)
             {
-                ushort* EOB = stackalloc ushort[2];
-                EOB[0] = HTAC[0x00, 0];
-                EOB[1] = HTAC[0x00, 1];
+                Span<ushort> EOB = stackalloc ushort[2] {
+                    HTAC[0x00, 0],
+                    HTAC[0x00, 1]
+                };
 
-                ushort* M16zeroes = stackalloc ushort[2];
-                M16zeroes[0] = HTAC[0xF0, 0];
-                M16zeroes[1] = HTAC[0xF0, 1];
+                Span<ushort> M16zeroes = stackalloc ushort[2] {
+                    HTAC[0xF0, 0],
+                    HTAC[0xF0, 1]
+                };
 
-                int dataOff;
-                int diff;
-                int end0pos;
-                int* DU = stackalloc int[64];
-                ushort* bits = stackalloc ushort[2];
-
-                for (dataOff = 0; dataOff < 64; dataOff += 8)
+                for (int dataOff = 0; dataOff < CDU.Length; dataOff += 8)
                 {
-                    DCT(
-                        &CDU[dataOff], &CDU[dataOff + 1], &CDU[dataOff + 2], &CDU[dataOff + 3],
-                        &CDU[dataOff + 4], &CDU[dataOff + 5], &CDU[dataOff + 6], &CDU[dataOff + 7]);
+                    CalculateDCT(
+                        ref CDU[dataOff + 0], ref CDU[dataOff + 1], ref CDU[dataOff + 2], ref CDU[dataOff + 3],
+                        ref CDU[dataOff + 4], ref CDU[dataOff + 5], ref CDU[dataOff + 6], ref CDU[dataOff + 7]);
                 }
 
-                for (dataOff = 0; dataOff < 8; ++dataOff)
+                for (int dataOff = 0; dataOff < 8; dataOff++)
                 {
-                    DCT(
-                        &CDU[dataOff], &CDU[dataOff + 8], &CDU[dataOff + 16], &CDU[dataOff + 24],
-                        &CDU[dataOff + 32], &CDU[dataOff + 40], &CDU[dataOff + 48], &CDU[dataOff + 56]);
+                    CalculateDCT(
+                        ref CDU[dataOff + 00], ref CDU[dataOff + 08], ref CDU[dataOff + 16], ref CDU[dataOff + 24],
+                        ref CDU[dataOff + 32], ref CDU[dataOff + 40], ref CDU[dataOff + 48], ref CDU[dataOff + 56]);
                 }
 
-                for (int i = 0; i < 64; ++i)
+                Span<int> DU = stackalloc int[64];
+                var zigZag = ZigZag;
+                for (int y = 0; y < 8; y++)
                 {
-                    float v = CDU[i] * fdtbl[i];
-                    DU[ZigZag[i]] = (int)(v < 0 ? v - 0.5f : v + 0.5f);
+                    for (int x = 0; x < 8; x++)
+                    {
+                        int i = y * 8 + x;
+                        float v = CDU[i] * fdtbl[i];
+                        DU[zigZag[i]] = (int)MathF.Round(v); //(v < 0 ? v - 0.5f : v + 0.5f);
+                    }
                 }
 
-                diff = DU[0] - DC;
+                Span<ushort> bits = stackalloc ushort[2];
+                int diff = DU[0] - DC;
                 if (diff == 0)
                 {
-                    WriteBits(s, bitBuf, bitCnt, HTDC[0, 0], HTDC[0, 1]);
+                    WriteBits(s, ref bitBuf, ref bitCnt, HTDC[0, 0], HTDC[0, 1]);
                 }
                 else
                 {
                     CalcBits(diff, bits);
-                    WriteBits(s, bitBuf, bitCnt, HTDC[bits[1], 0], HTDC[bits[1], 1]);
-                    WriteBits(s, bitBuf, bitCnt, bits[0], bits[1]);
+                    WriteBits(s, ref bitBuf, ref bitCnt, HTDC[bits[1], 0], HTDC[bits[1], 1]);
+                    WriteBits(s, ref bitBuf, ref bitCnt, bits[0], bits[1]);
                 }
 
-                end0pos = 63;
-                for (; (end0pos > 0) && (DU[end0pos] == 0); --end0pos) ;
+                int end0pos = 63;
+                for (; (end0pos > 0) && (DU[end0pos] == 0); end0pos--)
+                {
+                }
 
                 if (end0pos == 0)
                 {
-                    WriteBits(s, bitBuf, bitCnt, EOB[0], EOB[1]);
+                    WriteBits(s, ref bitBuf, ref bitCnt, EOB[0], EOB[1]);
                     return DU[0];
                 }
 
-                for (int i = 1; i <= end0pos; ++i)
+                for (int i = 1; i <= end0pos; i++)
                 {
                     int startpos = i;
-                    int nrzeroes;
-                    for (; (DU[i] == 0) && (i <= end0pos); ++i) ;
-
-                    nrzeroes = i - startpos;
+                    for (; (DU[i] == 0) && (i <= end0pos); i++)
+                    {
+                    }
+                    int nrzeroes = i - startpos;
                     if (nrzeroes >= 16)
                     {
                         int lng = nrzeroes >> 4;
-                        for (int nrmarker = 1; nrmarker <= lng; ++nrmarker)
-                            WriteBits(s, bitBuf, bitCnt, M16zeroes[0], M16zeroes[1]);
-
+                        int nrmarker = 0;
+                        for (nrmarker = 1; nrmarker <= lng; nrmarker++)
+                        {
+                            WriteBits(s, ref bitBuf, ref bitCnt, M16zeroes[0], M16zeroes[1]);
+                        }
                         nrzeroes &= 15;
                     }
 
                     CalcBits(DU[i], bits);
-                    WriteBits(s, bitBuf, bitCnt, HTAC[(nrzeroes << 4) + bits[1], 0],
-                        HTAC[(nrzeroes << 4) + bits[1], 1]);
-                    WriteBits(s, bitBuf, bitCnt, bits[0], bits[1]);
+                    ushort bs0 = HTAC[(nrzeroes << 4) + bits[1], 0];
+                    ushort bs1 = HTAC[(nrzeroes << 4) + bits[1], 1];
+                    WriteBits(s, ref bitBuf, ref bitCnt, bs0, bs1);
+                    WriteBits(s, ref bitBuf, ref bitCnt, bits[0], bits[1]);
                 }
 
                 if (end0pos != 63)
-                    WriteBits(s, bitBuf, bitCnt, EOB[0], EOB[1]);
+                {
+                    WriteBits(s, ref bitBuf, ref bitCnt, EOB[0], EOB[1]);
+                }
 
                 return DU[0];
             }
 
-            public static bool WriteCore(in WriteState s, bool useFloatPixels, int quality)
+            public static void CalculateDU(
+                Span<float> YDU, Span<float> UDU, Span<float> VDU, int pos,
+                float r, float g, float b)
+            {
+                YDU[pos] = +0.29900f * r + 0.58700f * g + 0.11400f * b - 128;
+                UDU[pos] = -0.16874f * r - 0.33126f * g + 0.50000f * b;
+                VDU[pos] = +0.50000f * r - 0.41869f * g - 0.08131f * b;
+            }
+
+            public static bool WriteCore(in WriteState s, int quality, bool useFloatPixels)
             {
                 int width = s.Width;
                 int height = s.Height;
                 int comp = s.Components;
 
-                if ((s.GetByteRow == null) || (width == 0) || (height == 0) || (comp > 4) || (comp < 1))
+                Span<float> fdtbl_Y = stackalloc float[64];
+                Span<float> fdtbl_UV = stackalloc float[64];
+                Span<byte> YTable = stackalloc byte[64];
+                Span<byte> UVTable = stackalloc byte[64];
+
+                if (width == 0 || (height == 0) || (comp > 4) || (comp < 1))
                     return false;
 
                 quality = quality != 0 ? quality : 90;
                 quality = quality < 1 ? 1 : quality > 100 ? 100 : quality;
                 quality = quality < 50 ? 5000 / quality : 200 - quality * 2;
-
-                float* fdtbl_Y = stackalloc float[64];
-                float* fdtbl_UV = stackalloc float[64];
-                Span<byte> YTable = stackalloc byte[64];
-                Span<byte> UVTable = stackalloc byte[64];
-
-                for (int i = 0; i < 64; i++)
+                for (int i = 0; i < 64; ++i)
                 {
+                    int uvti = 0;
                     int yti = (YQT[i] * quality + 50) / 100;
-                    int uvti = (UVQT[i] * quality + 50) / 100;
                     YTable[ZigZag[i]] = (byte)(yti < 1 ? 1 : yti > 255 ? 255 : yti);
+                    uvti = (UVQT[i] * quality + 50) / 100;
                     UVTable[ZigZag[i]] = (byte)(uvti < 1 ? 1 : uvti > 255 ? 255 : uvti);
                 }
-
-                for (int row = 0, k = 0; row < 8; row++)
+                for (int row = 0, k = 0; row < 8; ++row)
                 {
-                    for (int col = 0; col < 8; col++, k++)
+                    for (int col = 0; col < 8; ++col, ++k)
                     {
                         fdtbl_Y[k] = 1 / (YTable[ZigZag[k]] * aasf[row] * aasf[col]);
                         fdtbl_UV[k] = 1 / (UVTable[ZigZag[k]] * aasf[row] * aasf[col]);
                     }
                 }
-
                 {
-                    Span<byte> head1 = stackalloc byte[24];
-                    head1[0] = 0xFF;
-                    head1[1] = 0xC0;
-                    head1[2] = 0;
-                    head1[3] = 0x11;
-                    head1[4] = 8;
-                    head1[5] = (byte)(height >> 8);
-                    head1[6] = (byte)((height) & 0xff);
-                    head1[7] = (byte)(width >> 8);
-                    head1[8] = (byte)((width) & 0xff);
-                    head1[9] = 3;
-                    head1[10] = 1;
-                    head1[11] = 0x11;
-                    head1[12] = 0;
-                    head1[13] = 2;
-                    head1[14] = 0x11;
-                    head1[15] = 1;
-                    head1[16] = 3;
-                    head1[17] = 0x11;
-                    head1[18] = 1;
-                    head1[19] = 0xFF;
-                    head1[20] = 0xC4;
-                    head1[21] = 0x01;
-                    head1[22] = 0xA2;
-                    head1[23] = 0;
+                    ReadOnlySpan<byte> head1 = stackalloc byte[24] {
+                        0xFF,
+                        0xC0,
+                        0,
+                        0x11,
+                        8,
+                        (byte)(height >> 8),
+                        (byte)((height) & 0xff),
+                        (byte)(width >> 8),
+                        (byte)((width) & 0xff),
+                        3,
+                        1,
+                        0x11,
+                        0,
+                        2,
+                        0x11,
+                        1,
+                        3,
+                        0x11,
+                        1,
+                        0xFF,
+                        0xC4,
+                        0x01,
+                        0xA2,
+                        0
+                    };
 
-                    s.Write(head0);
-
+                    s.Write(Head0);
                     s.Write(YTable);
-                    ImageWriteHelpers.WriteByte(s, 1);
+                    s.WriteByte(1);
                     s.Write(UVTable);
                     s.Write(head1);
 
-                    s.Write(std_DcLuminanceNrcodes.AsSpan(1, std_DcChrominanceNrcodes.Length - 1));
-                    s.Write(std_DcLuminanceValues.AsSpan(0, std_DcChrominanceValues.Length));
+                    s.Write(std_DcLuminanceNrcodes[1..std_DcChrominanceNrcodes.Length]);
+                    s.Write(std_DcLuminanceValues);
 
-                    ImageWriteHelpers.WriteByte(s, 0x10);
-
-                    s.Write(std_AcLuminanceNrcodes.AsSpan(1));
+                    s.WriteByte(0x10);
+                    s.Write(std_AcLuminanceNrcodes.Slice(1));
                     s.Write(std_AcLuminanceValues);
 
-                    ImageWriteHelpers.WriteByte(s, 1);
-
-                    s.Write(std_DcChrominanceNrcodes.AsSpan(1));
+                    s.WriteByte(1);
+                    s.Write(std_DcChrominanceNrcodes.Slice(1));
                     s.Write(std_DcChrominanceValues);
 
-                    ImageWriteHelpers.WriteByte(s, 0x11);
-
-                    s.Write(std_AcChrominanceNrcodes.AsSpan(1));
+                    s.WriteByte(0x11);
+                    s.Write(std_AcChrominanceNrcodes.Slice(1));
                     s.Write(std_AcChrominanceValues);
 
-                    s.Write(head2);
+                    s.Write(Head2);
                 }
 
                 {
+                    ReadOnlySpan<ushort> fillBits = stackalloc ushort[2] { 0x7F, 7 };
+
                     int DCY = 0;
                     int DCU = 0;
                     int DCV = 0;
@@ -762,9 +441,10 @@ namespace StbSharp
                     int stride = width * comp;
                     int ofsG = comp > 2 ? 1 : 0;
                     int ofsB = comp > 2 ? 2 : 0;
-                    float* YDU = stackalloc float[64];
-                    float* UDU = stackalloc float[64];
-                    float* VDU = stackalloc float[64];
+
+                    Span<float> YDU = stackalloc float[64];
+                    Span<float> UDU = stackalloc float[64];
+                    Span<float> VDU = stackalloc float[64];
 
                     float[] floatRowBuf = null;
                     byte[] byteRowBuf = null;
@@ -780,53 +460,48 @@ namespace StbSharp
                         {
                             for (int row = y, pos = 0; row < (y + 8); row++)
                             {
-                                int clampedRow = (row < height) ? row : height - 1;
+                                int clamped_row = (row < height) ? row : height - 1;
+
                                 if (useFloatPixels)
-                                    s.GetFloatRow(clampedRow, floatRowBuf);
-                                else
-                                    s.GetByteRow(clampedRow, byteRowBuf);
-
-                                for (int col = x; col < (x + 8); col++, pos++)
                                 {
-                                    int p = ((col < width) ? col : (width - 1)) * comp;
-
-                                    float r, g, b;
-                                    if (useFloatPixels)
+                                    s.GetFloatRow(clamped_row, floatRowBuf);
+                                    for (int col = x; col < (x + 8); col++, pos++)
                                     {
-                                        // TODO: fix these byte.max muls
-                                        r = floatRowBuf[p + 0] * byte.MaxValue;
-                                        g = floatRowBuf[p + ofsG] * byte.MaxValue;
-                                        b = floatRowBuf[p + ofsB] * byte.MaxValue;
-                                    }
-                                    else
-                                    {
-                                        r = byteRowBuf[p + 0];
-                                        g = byteRowBuf[p + ofsG];
-                                        b = byteRowBuf[p + ofsB];
-                                    }
+                                        // TODO: somehow remove byte.maxval muls
 
-                                    YDU[pos] = +0.29900f * r + 0.58700f * g + 0.11400f * b - 128;
-                                    UDU[pos] = -0.16874f * r - 0.33126f * g + 0.50000f * b;
-                                    VDU[pos] = +0.50000f * r - 0.41869f * g - 0.08131f * b;
+                                        int p = ((col < width) ? col : (width - 1)) * comp;
+                                        float r = floatRowBuf[p + 0000] * byte.MaxValue;
+                                        float g = floatRowBuf[p + ofsG] * byte.MaxValue;
+                                        float b = floatRowBuf[p + ofsB] * byte.MaxValue;
+                                        CalculateDU(YDU, UDU, VDU, pos, r, g, b);
+                                    }
+                                }
+                                else
+                                {
+                                    s.GetByteRow(clamped_row, byteRowBuf);
+                                    for (int col = x; col < (x + 8); col++, pos++)
+                                    {
+                                        int p = ((col < width) ? col : (width - 1)) * comp;
+                                        float r = byteRowBuf[p + 0000];
+                                        float g = byteRowBuf[p + ofsG];
+                                        float b = byteRowBuf[p + ofsB];
+                                        CalculateDU(YDU, UDU, VDU, pos, r, g, b);
+                                    }
                                 }
                             }
 
-                            DCY = ProcessDU(s, &bitBuf, &bitCnt, YDU, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                            DCU = ProcessDU(s, &bitBuf, &bitCnt, UDU, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
-                            DCV = ProcessDU(s, &bitBuf, &bitCnt, VDU, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
+                            DCY = ProcessDU(s, ref bitBuf, ref bitCnt, YDU, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                            DCU = ProcessDU(s, ref bitBuf, ref bitCnt, UDU, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
+                            DCV = ProcessDU(s, ref bitBuf, ref bitCnt, VDU, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
                         }
                     }
-
-                    WriteBits(s, &bitBuf, &bitCnt, 0x7F, 7);
+                    WriteBits(s, ref bitBuf, ref bitCnt, fillBits[0], fillBits[1]);
                 }
 
-                ImageWriteHelpers.WriteByte(s, 0xFF);
-                ImageWriteHelpers.WriteByte(s, 0xD9);
+                s.WriteByte(0xFF);
+                s.WriteByte(0xD9);
                 return true;
             }
-        }
-
-        */
         }
     }
 }

@@ -123,6 +123,8 @@ namespace StbSharp
             if (scanlinePad < 0 || scanlinePad > 4)
                 throw new ArgumentOutOfRangeException(nameof(scanlinePad));
 
+            Span<byte> scanlinePadSpan = stackalloc byte[scanlinePad];
+
             if (s.Height <= 0)
                 return;
 
@@ -143,32 +145,29 @@ namespace StbSharp
             int comp = s.Components;
             int stride = width * comp;
 
-            int scratchSize = stride + scanlinePad;
-            ScratchBuffer scratch = s.GetScratch(scratchSize);
-            Span<byte> scratchSpan = scratch.AsSpan(0, scratchSize);
-            Span<byte> scanlinePadSpan = scratchSpan.Slice(stride, scanlinePad);
-            scanlinePadSpan.Clear();
-
+            ScratchBuffer scratch = s.GetScratch(stride);
+            Span<byte> scanline = scratch.AsSpan(0, stride);
+            
             for (; row != rowEnd; row += verticalDirection)
             {
-                s.GetByteRow.Invoke(row, scratchSpan);
+                s.GetByteRow(row, scanline);
 
                 int offset = 0;
                 for (int i = 0; i < width; ++i)
                 {
-                    var pixel = scratchSpan.Slice(i * comp, comp);
-                    var output = scratchSpan.Slice(offset, comp);
+                    var pixel = scanline.Slice(i * comp, comp);
+                    var output = scanline.Slice(offset, comp);
                     offset += WritePixel(flipRgb, alphaDirection, expandMono, pixel, output);
                 }
 
                 if (offset != stride)
                 {
-                    s.Write(scratchSpan.Slice(0, offset));
+                    s.Write(scanline.Slice(0, offset));
                     s.Write(scanlinePadSpan);
                 }
                 else
                 {
-                    s.Write(scratchSpan);
+                    s.Write(scanline);
                 }
             }
         }

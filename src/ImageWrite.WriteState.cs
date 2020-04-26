@@ -14,8 +14,8 @@ namespace StbSharp
 
         public readonly struct WriteState
         {
-            public readonly GetPixelByteRowCallback GetByteRow;
-            public readonly GetPixelFloatRowCallback GetFloatRow;
+            public readonly GetPixelByteRowCallback GetByteRowCallback;
+            public readonly GetPixelFloatRowCallback GetFloatRowCallback;
 
             public readonly WriteCallback WriteCallback;
             public readonly WriteProgressCallback ProgressCallback;
@@ -24,7 +24,6 @@ namespace StbSharp
             public readonly int Height;
             public readonly int Components; // TODO: replace with bit masks or something similar
 
-            public readonly Stream Output;
             public readonly CancellationToken CancellationToken;
             public readonly Memory<byte> ScratchBuffer;
 
@@ -38,42 +37,35 @@ namespace StbSharp
                 int width,
                 int height,
                 int components,
-                Stream output,
                 CancellationToken cancellation,
                 Memory<byte> scratchBuffer)
             {
                 WriteCallback = writeCallback;
-                GetByteRow = getPixelByteRow;
-                GetFloatRow = getPixelFloatRow;
+                GetByteRowCallback = getPixelByteRow;
+                GetFloatRowCallback = getPixelFloatRow;
                 ProgressCallback = progressCallback;
 
                 Width = width;
                 Height = height;
                 Components = components;
 
-                Output = output;
                 CancellationToken = cancellation;
                 ScratchBuffer = scratchBuffer;
             }
 
-            public WriteState(
-                GetPixelByteRowCallback getPixelByteRow,
-                GetPixelFloatRowCallback getPixelFloatRow,
-                WriteProgressCallback progressCallback,
-                int width,
-                int height,
-                int components,
-                Stream output,
-                CancellationToken cancellationToken,
-                Memory<byte> scratchBuffer) :
-                this(
-                    getPixelByteRow, getPixelFloatRow, (d) => output.Write(d), progressCallback,
-                    width, height, components,
-                    output, cancellationToken, scratchBuffer)
+            #endregion
+
+            public void GetByteRow(int row, Span<byte> destination)
             {
+                CancellationToken.ThrowIfCancellationRequested();
+                GetByteRowCallback?.Invoke(row, destination);
             }
 
-            #endregion
+            public void GetFloatRow(int row, Span<float> destination)
+            {
+                CancellationToken.ThrowIfCancellationRequested();
+                GetFloatRowCallback?.Invoke(row, destination);
+            }
 
             public void Write(ReadOnlySpan<byte> data)
             {

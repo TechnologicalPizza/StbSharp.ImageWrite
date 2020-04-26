@@ -32,7 +32,7 @@ namespace StbSharp
 
                 for (int row = 0; row < height; row++)
                 {
-                    s.GetFloatRow.Invoke(row, rowBufferSpan);
+                    s.GetFloatRowCallback.Invoke(row, rowBufferSpan);
                     WriteHdrScanline(s, row, rowBufferSpan, scratch);
                 }
                 return 1;

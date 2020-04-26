@@ -10,7 +10,6 @@ namespace StbSharp
     {
         public static unsafe class Png
         {
-            public static int FlipVerticallyOnWrite = 0;
             public static int WriteForceFilter = -1;
 
             // TODO: add more color formats and a palette
@@ -36,6 +35,7 @@ namespace StbSharp
                 // TODO: remove this (most often huge) alloc
                 //      consider a Stream where you Write uncompressed pixel data
                 //      and it automatically creates IDAT chunks
+                //    look at comment in IDAT code region
 
                 int filtLength = (stride + 1) * h;
                 byte* filt = (byte*)CRuntime.MAlloc(filtLength);
@@ -64,10 +64,7 @@ namespace StbSharp
 
                     for (int y = 0; y < h; ++y)
                     {
-                        s.CancellationToken.ThrowIfCancellationRequested();
-
-                        int rowIndex = FlipVerticallyOnWrite != 0 ? h - 1 - y : y;
-                        s.GetByteRow(rowIndex, rowBuffer);
+                        s.GetByteRow(y, rowBuffer);
 
                         int filterType = 0;
                         if (forceFilter > (-1))
@@ -86,7 +83,7 @@ namespace StbSharp
 
                                 estimate = 0;
                                 for (int i = 0; i < lineBuffer.Length; ++i)
-                                    estimate += CRuntime.FastAbs(lineBuffer[i]);
+                                    estimate += lineBuffer[i];
 
                                 if (estimate < bestFilterValue)
                                 {
@@ -223,7 +220,8 @@ namespace StbSharp
                         s.Progress(written / (double)compressed.Length * 0.01 + 0.99);
                     }
 
-                    // TODO: create a stream wrapper that can both write and calculate CRC simultaneously
+                    // TODO: create a stream wrapper that can 
+                    // both write/compress multiple chunks and calculate the CRC simultaneously
                     datChunk.HashData(compressedSpan);
                     datChunk.WriteFooter(tmp, ref pos);
 
@@ -254,11 +252,13 @@ namespace StbSharp
                 public unsafe PngChunkHeader(int length, string type)
                 {
                     if (length < 0)
-                        throw new ArgumentOutOfRangeException(nameof(length), "The value may not be negative.");
+                        throw new ArgumentOutOfRangeException(
+                            nameof(length), "The value may not be negative.");
                     if (type == null)
                         throw new ArgumentNullException(nameof(type));
                     if (type.Length != 4)
-                        throw new ArgumentException(nameof(type), "The string must be exactly 4 characters long.");
+                        throw new ArgumentException(
+                            nameof(type), "The string must be exactly 4 characters long.");
 
                     Span<byte> typeBytes = stackalloc byte[sizeof(uint)];
                     for (int i = 0; i < type.Length; i++)
@@ -388,8 +388,8 @@ namespace StbSharp
 
                     case 4:
                         for (int i = n; i < scanline.Length; ++i)
-                            scanline[i] = (byte)(row[i] - CRuntime.Paeth32(
-                                row[i - n], previousRow[i], previousRow[i - n]));
+                            scanline[i] = (byte)(
+                                row[i] - CRuntime.Paeth32(row[i - n], previousRow[i], previousRow[i - n]));
                         break;
 
                     case 5:

@@ -6,19 +6,20 @@ namespace StbSharp
     {
         public static class Tga
         {
-            public static bool WriteCore(in WriteState s, bool writeRLE)
+            public static bool WriteCore(in WriteState s, bool useRLE)
             {
                 int width = s.Width;
                 int height = s.Height;
                 int comp = s.Components;
+                
+                if ((height < 0) || (width < 0))
+                    return false;
 
                 int hasAlpha = (comp == 2 || comp == 4) ? 1 : 0;
                 int colorbytes = hasAlpha != 0 ? comp - 1 : comp;
                 int format = colorbytes < 2 ? 3 : 2;
-                if ((height < 0) || (width < 0))
-                    return false;
-
-                if (!writeRLE)
+                
+                if (!useRLE)
                 {
                     ReadOnlySpan<long> headers = stackalloc long[]
                     {
