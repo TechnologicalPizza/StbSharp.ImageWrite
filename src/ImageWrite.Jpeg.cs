@@ -1,6 +1,5 @@
 using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace StbSharp
 {
@@ -10,18 +9,18 @@ namespace StbSharp
         {
             #region Constants
 
-            public static ReadOnlySpan<byte> ZigZag => new byte[]
+            public static ReadOnlyMemory<byte> ZigZag { get; } = new byte[]
             {
                 0, 1, 5, 6, 14, 15, 27, 28, 2, 4, 7, 13, 16, 26, 29, 42, 3, 8, 12, 17, 25, 30, 41,
                 43, 9, 11, 18, 24, 31, 40, 44, 53, 10, 19, 23, 32, 39, 45, 52, 54, 20, 22, 33, 38,
                 46, 51, 55, 60, 21, 34, 37, 47, 50, 56, 59, 61, 35, 36, 48, 49, 57, 58, 62, 63
             };
 
-            public static ReadOnlySpan<byte> std_DcLuminanceNrcodes => new byte[] { 0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 };
-            public static ReadOnlySpan<byte> std_DcLuminanceValues => new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
-            public static ReadOnlySpan<byte> std_AcLuminanceNrcodes => new byte[] { 0, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
+            public static ReadOnlyMemory<byte> std_DcLuminanceNrcodes { get; } = new byte[] { 0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 };
+            public static ReadOnlyMemory<byte> std_DcLuminanceValues { get; } = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+            public static ReadOnlyMemory<byte> std_AcLuminanceNrcodes { get; } = new byte[] { 0, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
 
-            public static ReadOnlySpan<byte> std_AcLuminanceValues => new byte[]
+            public static ReadOnlyMemory<byte> std_AcLuminanceValues { get; } = new byte[]
             {
                 0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07, 0x22, 0x71,
                 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42, 0xb1, 0xc1, 0x15, 0x52, 0xd1, 0xf0, 0x24, 0x33, 0x62, 0x72,
@@ -34,11 +33,11 @@ namespace StbSharp
                 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa
             };
 
-            public static ReadOnlySpan<byte> std_DcChrominanceNrcodes => new byte[] { 0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 };
-            public static ReadOnlySpan<byte> std_DcChrominanceValues => new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
-            public static ReadOnlySpan<byte> std_AcChrominanceNrcodes => new byte[] { 0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77 };
+            public static ReadOnlyMemory<byte> std_DcChrominanceNrcodes { get; } = new byte[] { 0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 };
+            public static ReadOnlyMemory<byte> std_DcChrominanceValues { get; } = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+            public static ReadOnlyMemory<byte> std_AcChrominanceNrcodes { get; } = new byte[] { 0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77 };
 
-            public static ReadOnlySpan<byte> std_AcChrominanceValues => new byte[]
+            public static ReadOnlyMemory<byte> std_AcChrominanceValues { get; } = new byte[]
             {
                 0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21, 0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71, 0x13, 0x22,
                 0x32, 0x81, 0x08, 0x14, 0x42, 0x91, 0xa1, 0xb1, 0xc1, 0x09, 0x23, 0x33, 0x52, 0xf0, 0x15, 0x62, 0x72, 0xd1,
@@ -151,32 +150,31 @@ namespace StbSharp
                 0.275899379f * 2.828427125f
             };
 
-            public static ReadOnlySpan<byte> Head0 => new byte[]
+            public static ReadOnlyMemory<byte> Head0 { get; } = new byte[]
             {
                 0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F',
                 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xFF, 0xDB, 0, 0x84, 0
             };
 
-            public static ReadOnlySpan<byte> Head2 => new byte[]
+            public static ReadOnlyMemory<byte> Head2 { get; } = new byte[]
             {
                 0xFF, 0xDA, 0, 0xC, 3, 1, 0, 2, 0x11, 3, 0x11, 0, 0x3F, 0
             };
 
             #endregion
 
-            public static void WriteBits(
-                in WriteState s, ref int bitBuf, ref int bitCnt, ushort bs0, ushort bs1)
+            public static async ValueTask WriteBits(
+                WriteState s, ref int bitBuf, ref int bitCnt, ushort bs0, ushort bs1)
             {
                 bitCnt += bs1;
                 bitBuf |= bs0 << (24 - bitCnt);
                 while (bitCnt >= 8)
                 {
                     byte c = (byte)((bitBuf >> 16) & 255);
-                    s.WriteByte(c);
+                    await s.WriteByte(c);
                     if (c == 255)
-                    {
-                        s.WriteByte(0);
-                    }
+                        await s.WriteByte(0);
+
                     bitBuf <<= 8;
                     bitCnt -= 8;
                 }
@@ -239,20 +237,10 @@ namespace StbSharp
                 bits[0] = (ushort)(val & ((1 << bits[1]) - 1));
             }
 
-            public static int ProcessDU(
-                in WriteState s, ref int bitBuf, ref int bitCnt,
+            public static async ValueTask<int> ProcessDU(
+                WriteState s, ref int bitBuf, ref int bitCnt,
                 Span<float> CDU, ReadOnlySpan<float> fdtbl, int DC, ushort[,] HTDC, ushort[,] HTAC)
             {
-                Span<ushort> EOB = stackalloc ushort[2] {
-                    HTAC[0x00, 0],
-                    HTAC[0x00, 1]
-                };
-
-                Span<ushort> M16zeroes = stackalloc ushort[2] {
-                    HTAC[0xF0, 0],
-                    HTAC[0xF0, 1]
-                };
-
                 for (int dataOff = 0; dataOff < CDU.Length; dataOff += 8)
                 {
                     CalculateDCT(
@@ -268,7 +256,7 @@ namespace StbSharp
                 }
 
                 Span<int> DU = stackalloc int[64];
-                var zigZag = ZigZag;
+                var zigZag = ZigZag.Span;
                 for (int y = 0; y < 8; y++)
                 {
                     for (int x = 0; x < 8; x++)
@@ -283,13 +271,13 @@ namespace StbSharp
                 int diff = DU[0] - DC;
                 if (diff == 0)
                 {
-                    WriteBits(s, ref bitBuf, ref bitCnt, HTDC[0, 0], HTDC[0, 1]);
+                    await WriteBits(s, ref bitBuf, ref bitCnt, HTDC[0, 0], HTDC[0, 1]);
                 }
                 else
                 {
                     CalcBits(diff, bits);
-                    WriteBits(s, ref bitBuf, ref bitCnt, HTDC[bits[1], 0], HTDC[bits[1], 1]);
-                    WriteBits(s, ref bitBuf, ref bitCnt, bits[0], bits[1]);
+                    await WriteBits(s, ref bitBuf, ref bitCnt, HTDC[bits[1], 0], HTDC[bits[1], 1]);
+                    await WriteBits(s, ref bitBuf, ref bitCnt, bits[0], bits[1]);
                 }
 
                 int end0pos = 63;
@@ -299,7 +287,7 @@ namespace StbSharp
 
                 if (end0pos == 0)
                 {
-                    WriteBits(s, ref bitBuf, ref bitCnt, EOB[0], EOB[1]);
+                    await WriteBits(s, ref bitBuf, ref bitCnt, HTAC[0x00, 0], HTAC[0x00, 1]);
                     return DU[0];
                 }
 
@@ -316,7 +304,7 @@ namespace StbSharp
                         int nrmarker = 0;
                         for (nrmarker = 1; nrmarker <= lng; nrmarker++)
                         {
-                            WriteBits(s, ref bitBuf, ref bitCnt, M16zeroes[0], M16zeroes[1]);
+                            await WriteBits(s, ref bitBuf, ref bitCnt, HTAC[0xF0, 0], HTAC[0xF0, 1]);
                         }
                         nrzeroes &= 15;
                     }
@@ -324,13 +312,13 @@ namespace StbSharp
                     CalcBits(DU[i], bits);
                     ushort bs0 = HTAC[(nrzeroes << 4) + bits[1], 0];
                     ushort bs1 = HTAC[(nrzeroes << 4) + bits[1], 1];
-                    WriteBits(s, ref bitBuf, ref bitCnt, bs0, bs1);
-                    WriteBits(s, ref bitBuf, ref bitCnt, bits[0], bits[1]);
+                    await WriteBits(s, ref bitBuf, ref bitCnt, bs0, bs1);
+                    await WriteBits(s, ref bitBuf, ref bitCnt, bits[0], bits[1]);
                 }
 
                 if (end0pos != 63)
                 {
-                    WriteBits(s, ref bitBuf, ref bitCnt, EOB[0], EOB[1]);
+                    await WriteBits(s, ref bitBuf, ref bitCnt, EOB[0], EOB[1]);
                 }
 
                 return DU[0];
@@ -345,41 +333,45 @@ namespace StbSharp
                 VDU[pos] = +0.50000f * r - 0.41869f * g - 0.08131f * b;
             }
 
-            public static bool WriteCore(in WriteState s, int quality, bool useFloatPixels)
+            public static async Task WriteCore(WriteState s, int quality, bool useFloatPixels)
             {
                 int width = s.Width;
                 int height = s.Height;
                 int comp = s.Components;
 
-                Span<float> fdtbl_Y = stackalloc float[64];
-                Span<float> fdtbl_UV = stackalloc float[64];
-                Span<byte> YTable = stackalloc byte[64];
-                Span<byte> UVTable = stackalloc byte[64];
+                var fdtbl_Y = new float[64];
+                var fdtbl_UV = new float[64];
+                var YTable = new byte[64];
+                var UVTable = new byte[64];
 
-                if (width == 0 || (height == 0) || (comp > 4) || (comp < 1))
-                    return false;
+                if (width == 0 || (height == 0))
+                    throw new ArgumentException("Invalid image dimensions.", nameof(s));
+
+                if ((comp < 1) || (comp > 4))
+                    throw new ArgumentException("Invalid image components.", nameof(s));
 
                 quality = quality != 0 ? quality : 90;
                 quality = quality < 1 ? 1 : quality > 100 ? 100 : quality;
                 quality = quality < 50 ? 5000 / quality : 200 - quality * 2;
+
                 for (int i = 0; i < 64; ++i)
                 {
                     int uvti = 0;
                     int yti = (YQT[i] * quality + 50) / 100;
-                    YTable[ZigZag[i]] = (byte)(yti < 1 ? 1 : yti > 255 ? 255 : yti);
+                    YTable[ZigZag.Span[i]] = (byte)(yti < 1 ? 1 : yti > 255 ? 255 : yti);
                     uvti = (UVQT[i] * quality + 50) / 100;
-                    UVTable[ZigZag[i]] = (byte)(uvti < 1 ? 1 : uvti > 255 ? 255 : uvti);
+                    UVTable[ZigZag.Span[i]] = (byte)(uvti < 1 ? 1 : uvti > 255 ? 255 : uvti);
                 }
                 for (int row = 0, k = 0; row < 8; ++row)
                 {
                     for (int col = 0; col < 8; ++col, ++k)
                     {
-                        fdtbl_Y[k] = 1 / (YTable[ZigZag[k]] * aasf[row] * aasf[col]);
-                        fdtbl_UV[k] = 1 / (UVTable[ZigZag[k]] * aasf[row] * aasf[col]);
+                        fdtbl_Y[k] = 1 / (YTable[ZigZag.Span[k]] * aasf[row] * aasf[col]);
+                        fdtbl_UV[k] = 1 / (UVTable[ZigZag.Span[k]] * aasf[row] * aasf[col]);
                     }
                 }
                 {
-                    ReadOnlySpan<byte> head1 = stackalloc byte[24] {
+                    var head1 = new byte[24] {
                         0xFF,
                         0xC0,
                         0,
@@ -406,32 +398,32 @@ namespace StbSharp
                         0
                     };
 
-                    s.Write(Head0);
-                    s.Write(YTable);
-                    s.WriteByte(1);
-                    s.Write(UVTable);
-                    s.Write(head1);
+                    await s.Write(Head0);
+                    await s.Write(YTable);
+                    await s.WriteByte(1);
+                    await s.Write(UVTable);
+                    await s.Write(head1);
 
-                    s.Write(std_DcLuminanceNrcodes[1..std_DcChrominanceNrcodes.Length]);
-                    s.Write(std_DcLuminanceValues);
+                    await s.Write(std_DcLuminanceNrcodes[1..std_DcChrominanceNrcodes.Length]);
+                    await s.Write(std_DcLuminanceValues);
 
-                    s.WriteByte(0x10);
-                    s.Write(std_AcLuminanceNrcodes.Slice(1));
-                    s.Write(std_AcLuminanceValues);
+                    await s.WriteByte(0x10);
+                    await s.Write(std_AcLuminanceNrcodes.Slice(1));
+                    await s.Write(std_AcLuminanceValues);
 
-                    s.WriteByte(1);
-                    s.Write(std_DcChrominanceNrcodes.Slice(1));
-                    s.Write(std_DcChrominanceValues);
+                    await s.WriteByte(1);
+                    await s.Write(std_DcChrominanceNrcodes.Slice(1));
+                    await s.Write(std_DcChrominanceValues);
 
-                    s.WriteByte(0x11);
-                    s.Write(std_AcChrominanceNrcodes.Slice(1));
-                    s.Write(std_AcChrominanceValues);
+                    await s.WriteByte(0x11);
+                    await s.Write(std_AcChrominanceNrcodes.Slice(1));
+                    await s.Write(std_AcChrominanceValues);
 
-                    s.Write(Head2);
+                    await s.Write(Head2);
                 }
 
                 {
-                    ReadOnlySpan<ushort> fillBits = stackalloc ushort[2] { 0x7F, 7 };
+                    var fillBits = new ushort[2] { 0x7F, 7 };
 
                     int DCY = 0;
                     int DCU = 0;
@@ -442,9 +434,9 @@ namespace StbSharp
                     int ofsG = comp > 2 ? 1 : 0;
                     int ofsB = comp > 2 ? 2 : 0;
 
-                    Span<float> YDU = stackalloc float[64];
-                    Span<float> UDU = stackalloc float[64];
-                    Span<float> VDU = stackalloc float[64];
+                    var YDU = new float[64];
+                    var UDU = new float[64];
+                    var VDU = new float[64];
 
                     float[] floatRowBuf = null;
                     byte[] byteRowBuf = null;
@@ -495,12 +487,11 @@ namespace StbSharp
                             DCV = ProcessDU(s, ref bitBuf, ref bitCnt, VDU, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
                         }
                     }
-                    WriteBits(s, ref bitBuf, ref bitCnt, fillBits[0], fillBits[1]);
+                    await WriteBits(s, ref bitBuf, ref bitCnt, fillBits[0], fillBits[1]);
                 }
 
-                s.WriteByte(0xFF);
-                s.WriteByte(0xD9);
-                return true;
+                await s.WriteByte(0xFF);
+                await s.WriteByte(0xD9);
             }
         }
     }

@@ -77,7 +77,7 @@ namespace StbSharp
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return new ByteMemoryHolder(output.GetBuffer().AsMemory(0, (int)output.Length));
+                return new MemoryHolder<byte>(output.GetBuffer().AsMemory(0, (int)output.Length));
             }
         }
     }

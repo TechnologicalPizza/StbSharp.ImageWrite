@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 namespace StbSharp
 {
@@ -6,7 +7,7 @@ namespace StbSharp
     {
         public static class Bmp
         {
-            public static bool WriteCore(in WriteState s)
+            public static Task Write(WriteState s)
             {
                 // we only support RGB and RGBA, no palette indexing
                 // TODO: support for palette indexing
@@ -23,7 +24,7 @@ namespace StbSharp
                 int fileSize = 14 + dibHeaderLen + dataSize;
                 int dataOffset = 14 + dibHeaderLen;
                 int compression = s.Components == 4 ? 3 : 0; // 3 == bitfields | 0 == no compression
-                ReadOnlySpan<long> headers = stackalloc long[]
+                var headers = new long[]
                 {
                     // BMP header
                     'B',
@@ -71,9 +72,9 @@ namespace StbSharp
                     ? "11 4 22 44 44 22 444444 4444 4 444444444 444" // with compression headers
                     : "11 4 22 44 44 22 444444";
 
-                int headerCount = 17 + extraPad / 4; // divide by 4 as all the compression headers are int32
+                int headerCount = 17 + extraPad / sizeof(int); // all the compression headers are int32
                 return ImageWriteHelpers.OutFile(
-                    s, true, -1, true, alphaDir, pad, format, headers.Slice(0, headerCount));
+                    s, true, -1, true, alphaDir, pad, format, headers.AsMemory(0, headerCount));
             }
         }
     }

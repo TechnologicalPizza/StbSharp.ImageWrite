@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace StbSharp
 {
@@ -7,73 +8,64 @@ namespace StbSharp
     {
         public static class Hdr
         {
-            public static readonly ReadOnlyMemory<byte> FileHeaderBase =
+            public static ReadOnlyMemory<byte> FileHeaderBase { get; } =
                 Encoding.UTF8.GetBytes("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n");
 
-            public static int WriteCore(in WriteState s)
+            public static async Task Write(WriteState s)
             {
                 int width = s.Width;
                 int height = s.Height;
                 if (height <= 0 || width <= 0)
-                    return 0;
+                    throw new ArgumentException("Invalid image dimensions.", nameof(s));
 
                 byte[] headerBytes = Encoding.UTF8.GetBytes(string.Format(
                     "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", height.ToString(), width.ToString()));
 
-                s.Write(FileHeaderBase.Span);
-                s.Write(headerBytes);
+                await s.Write(FileHeaderBase);
+                await s.Write(headerBytes);
 
-                ScratchBuffer scratch = default;
-                if (width < 8 || width >= s.ScratchBuffer.Length / 4)
-                    scratch = s.GetScratch(width * 4);
+                byte[] scratch = default;
+                if (width < 8 || width >= 32768)
+                    scratch = new byte[width * 4];
 
                 var rowBuffer = new float[width];
-                var rowBufferSpan = rowBuffer.AsSpan();
 
                 for (int row = 0; row < height; row++)
                 {
-                    s.GetFloatRowCallback.Invoke(row, rowBufferSpan);
-                    WriteHdrScanline(s, row, rowBufferSpan, scratch);
+                    s.GetFloatRowCallback.Invoke(row, rowBuffer);
+                    await WriteHdrScanline(s, rowBuffer, scratch);
                 }
-                return 1;
             }
 
-            public static void WriteRunData(in WriteState s, int length, byte databyte)
+            public static async ValueTask WriteRunData(WriteState s, int length, byte databyte)
             {
-                Span<byte> tmp = stackalloc byte[1];
-                tmp[0] = (byte)((length + 128) & 0xff); // lengthbyte
-                s.Write(tmp);
-
-                tmp[0] = databyte;
-                s.Write(tmp);
+                await s.WriteByte((byte)((length + 128) & 0xff)); // lengthbyte
+                await s.WriteByte(databyte);
             }
 
-            public static void WriteDumpData(in WriteState s, ReadOnlySpan<byte> data)
+            public static async ValueTask WriteDumpData(WriteState s, ReadOnlyMemory<byte> data)
             {
-                Span<byte> tmp = stackalloc byte[1];
-                tmp[0] = (byte)((data.Length) & 0xff); // lengthbyte
-                s.Write(tmp);
-
-                s.Write(data);
+                await s.WriteByte((byte)((data.Length) & 0xff)); // lengthbyte
+                await s.Write(data);
             }
 
-            public static void WriteHdrScanline(
-                in WriteState s, int row, Span<float> data, in ScratchBuffer buffer)
+            public static async ValueTask WriteHdrScanline(
+                WriteState s, float[] data, byte[] buffer)
             {
                 int width = s.Width;
                 int n = s.Components;
-                
-                ReadOnlySpan<byte> scanlineHeader = stackalloc byte[4] {
+
+                var scanlineHeader = new byte[4] {
                     2,
                     2,
                     (byte)((width & 0xff00) >> 8),
                     (byte)(width & 0x00ff),
                 };
 
-                Span<byte> rgbe = stackalloc byte[4];
-                Span<float> linear = stackalloc float[3];
+                var rgbe = new byte[4];
+                var linear = new float[3];
 
-                if (width < 8 || width >= s.ScratchBuffer.Length / 4)
+                if (width < 8 || width >= buffer.Length / 4)
                 {
                     for (int x = 0; x < width; x++)
                     {
@@ -92,12 +84,11 @@ namespace StbSharp
                         }
 
                         LinearToRgbe(linear, rgbe);
-                        s.Write(rgbe);
+                        await s.Write(rgbe);
                     }
                 }
                 else
                 {
-                    Span<byte> bufferSpan = buffer.AsSpan();
                     for (int x = 0; x < width; x++)
                     {
                         switch (n)
@@ -115,17 +106,17 @@ namespace StbSharp
                         }
 
                         LinearToRgbe(linear, rgbe);
-                        bufferSpan[x + width * 0] = rgbe[0];
-                        bufferSpan[x + width * 1] = rgbe[1];
-                        bufferSpan[x + width * 2] = rgbe[2];
-                        bufferSpan[x + width * 3] = rgbe[3];
+                        buffer[x + width * 0] = rgbe[0];
+                        buffer[x + width * 1] = rgbe[1];
+                        buffer[x + width * 2] = rgbe[2];
+                        buffer[x + width * 3] = rgbe[3];
                     }
 
-                    s.Write(scanlineHeader);
+                    await s.Write(scanlineHeader);
 
                     for (int c = 0; c < 4; c++)
                     {
-                        Span<byte> comp = bufferSpan.Slice(width * c);
+                        int o = width * c;
 
                         int x = 0;
                         while (x < width)
@@ -133,8 +124,8 @@ namespace StbSharp
                             int r = x;
                             while ((r + 2) < width)
                             {
-                                if (comp[r] == comp[r + 1] &&
-                                    comp[r] == comp[r + 2])
+                                if (buffer[o + r] == buffer[o + r + 1] &&
+                                    buffer[o + r] == buffer[o + r + 2])
                                     break;
                                 r++;
                             }
@@ -147,13 +138,14 @@ namespace StbSharp
                                 int len = r - x;
                                 if (len > 128)
                                     len = 128;
-                                WriteDumpData(s, comp.Slice(x, len));
+
+                                await WriteDumpData(s, buffer.AsMemory(o + x, len));
                                 x += len;
                             }
 
                             if (r + 2 < width)
                             {
-                                while ((r < width) && (comp[r] == comp[x]))
+                                while ((r < width) && (buffer[o + r] == buffer[o + x]))
                                     r++;
 
                                 while (x < r)
@@ -161,7 +153,8 @@ namespace StbSharp
                                     int len = r - x;
                                     if (len > 127)
                                         len = 127;
-                                    WriteRunData(s, len, comp[x]);
+
+                                    await WriteRunData(s, len, buffer[o + x]);
                                     x += len;
                                 }
                             }

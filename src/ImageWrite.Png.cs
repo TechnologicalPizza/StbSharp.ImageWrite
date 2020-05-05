@@ -1,22 +1,31 @@
 using System;
 using System.Buffers.Binary;
 using System.IO.Compression;
-using System.Runtime.InteropServices;
-using System.Threading;
+using System.Threading.Tasks;
 
 namespace StbSharp
 {
     public static partial class ImageWrite
     {
-        public static unsafe class Png
+        public static class Png
         {
+            public static ReadOnlyMemory<byte> FilterMapping => new byte[5]
+            {
+                0, 1, 2, 3, 4
+            };
+
+            public static ReadOnlyMemory<byte> FirstFilterMapping => new byte[5]
+            {
+                0, 1, 0, 5, 6
+            };
+
             public static int WriteForceFilter = -1;
 
             // TODO: add more color formats and a palette
             // TODO: split IDAT chunk into multiple
             // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
 
-            public static bool WriteCore(in WriteState s, CompressionLevel level)
+            public static async Task Write(WriteState s, CompressionLevel level)
             {
                 ZlibHeader.ConvertLevel(level); // acts as a parameter check
 
@@ -38,115 +47,98 @@ namespace StbSharp
                 //    look at comment in IDAT code region
 
                 int filtLength = (stride + 1) * h;
-                byte* filt = (byte*)CRuntime.MAlloc(filtLength);
-                if (filt == null)
-                    return false;
+                var filt = new byte[filtLength];
 
-                IMemoryHolder compressed;
+                double progressStep = 0;
+                double progressStepCount = pixelCount / (1000 * Math.Log(pixelCount, 2));
+                double progressStepSize = Math.Max(1, pixelCount / progressStepCount);
 
-                try
+                // TODO: use ArrayPool
+                var previousRowBuffer = new byte[stride];
+                var rowBuffer = new byte[stride];
+                var lineBuffer = new byte[stride];
+
+                void SwapBuffers()
                 {
-                    double progressStep = 0;
-                    double progressStepCount = pixelCount / (1000 * Math.Log(pixelCount, 2));
-                    double progressStepSize = Math.Max(1, pixelCount / progressStepCount);
+                    var tmp = previousRowBuffer;
+                    previousRowBuffer = rowBuffer;
+                    rowBuffer = tmp;
+                }
 
-                    // TODO: use ArrayPool
-                    var previousRowBuffer = new byte[stride];
-                    var rowBuffer = new byte[stride];
-                    var lineBuffer = new byte[stride];
+                for (int y = 0; y < h; ++y)
+                {
+                    s.GetByteRow(y, rowBuffer);
 
-                    void SwapBuffers()
+                    int filterType = 0;
+                    if (forceFilter > (-1))
                     {
-                        var tmp = previousRowBuffer;
-                        previousRowBuffer = rowBuffer;
-                        rowBuffer = tmp;
+                        filterType = forceFilter;
+                        EncodeLine(previousRowBuffer, rowBuffer, y, n, forceFilter, lineBuffer);
                     }
-
-                    for (int y = 0; y < h; ++y)
+                    else
                     {
-                        s.GetByteRow(y, rowBuffer);
+                        int bestFilter = 0;
+                        int bestFilterValue = 0x7fffffff;
+                        int estimate = 0;
+                        for (filterType = 0; filterType < 5; filterType++)
+                        {
+                            EncodeLine(previousRowBuffer, rowBuffer, y, n, filterType, lineBuffer);
 
-                        int filterType = 0;
-                        if (forceFilter > (-1))
-                        {
-                            filterType = forceFilter;
-                            EncodeLine(previousRowBuffer, rowBuffer, y, n, forceFilter, lineBuffer);
-                        }
-                        else
-                        {
-                            int bestFilter = 0;
-                            int bestFilterValue = 0x7fffffff;
-                            int estimate = 0;
-                            for (filterType = 0; filterType < 5; filterType++)
+                            estimate = 0;
+                            for (int i = 0; i < lineBuffer.Length; ++i)
+                                estimate += lineBuffer[i];
+
+                            if (estimate < bestFilterValue)
                             {
-                                EncodeLine(previousRowBuffer, rowBuffer, y, n, filterType, lineBuffer);
-
-                                estimate = 0;
-                                for (int i = 0; i < lineBuffer.Length; ++i)
-                                    estimate += lineBuffer[i];
-
-                                if (estimate < bestFilterValue)
-                                {
-                                    bestFilterValue = estimate;
-                                    bestFilter = filterType;
-                                }
-
-                                s.CancellationToken.ThrowIfCancellationRequested();
+                                bestFilterValue = estimate;
+                                bestFilter = filterType;
                             }
 
-                            if (filterType != bestFilter)
-                            {
-                                EncodeLine(previousRowBuffer, rowBuffer, y, n, bestFilter, lineBuffer);
-                                filterType = bestFilter;
-                            }
+                            s.CancellationToken.ThrowIfCancellationRequested();
                         }
 
-                        s.CancellationToken.ThrowIfCancellationRequested();
-
-                        SwapBuffers();
-
-                        var filtSlice = new Span<byte>(filt + y * (stride + 1), stride + 1);
-                        filtSlice[0] = (byte)filterType;
-                        lineBuffer.CopyTo(filtSlice.Slice(1));
-
-                        // TODO: tidy this up a notch so it's easier to reuse in other implementations
-                        if (s.ProgressCallback != null)
+                        if (filterType != bestFilter)
                         {
-                            progressStep += w;
-                            while (progressStep >= progressStepSize)
-                            {
-                                s.Progress(y / (double)h * 0.5);
-                                progressStep -= progressStepSize;
-                            }
+                            EncodeLine(previousRowBuffer, rowBuffer, y, n, bestFilter, lineBuffer);
+                            filterType = bestFilter;
                         }
                     }
 
                     s.CancellationToken.ThrowIfCancellationRequested();
 
-                    // TODO: redesign chunk encoding to write partial chunks instead of one large
+                    SwapBuffers();
 
-                    Action<double> weightedProgress = null;
+                    var filtSlice = filt.AsMemory(y * (stride + 1), stride + 1);
+                    filtSlice.Span[0] = (byte)filterType;
+                    lineBuffer.CopyTo(filtSlice.Slice(1));
+
+                    // TODO: tidy this up a notch so it's easier to reuse in other implementations
                     if (s.ProgressCallback != null)
                     {
-                        var ctx = s;
-                        weightedProgress = (p) => ctx.Progress(p * 0.49 + 0.5);
+                        progressStep += w;
+                        while (progressStep >= progressStepSize)
+                        {
+                            s.Progress(y / (double)h * 0.5);
+                            progressStep -= progressStepSize;
+                        }
                     }
-
-                    var filtSpan = new ReadOnlySpan<byte>(filt, filtLength);
-                    compressed = Zlib.DeflateCompress(
-                        filtSpan, level, s.CancellationToken, weightedProgress);
-
-                    if (compressed == null)
-                        return false;
                 }
-                finally
+
+                // TODO: redesign chunk encoding to write partial chunks instead of one large
+
+                Action<double> weightedProgress = null;
+                if (s.ProgressCallback != null)
                 {
-                    CRuntime.Free(filt);
+                    var ctx = s;
+                    weightedProgress = (p) => ctx.Progress(p * 0.49 + 0.5);
                 }
+
+                var compressed = Zlib.DeflateCompress(
+                    filt, level, s.CancellationToken, weightedProgress);
 
                 using (compressed)
                 {
-                    Span<byte> colorTypeMap = stackalloc byte[5];
+                    var colorTypeMap = new byte[5];
                     colorTypeMap[0] = 255;
                     colorTypeMap[1] = 0;
                     colorTypeMap[2] = 4;
@@ -154,7 +146,7 @@ namespace StbSharp
                     colorTypeMap[4] = 6;
 
                     // sizeof sig + (fields + CRCs)
-                    Span<byte> tmp = stackalloc byte[8 + sizeof(uint) * (5 + 2) + 5];
+                    var tmp = new byte[8 + sizeof(uint) * (5 + 2) + 5];
                     int pos = 0;
 
                     #region PNG Signature
@@ -195,8 +187,6 @@ namespace StbSharp
                     //       encoding needs to happen "on demand"
                     //       (instead of lines encode a specified amount of pixels)
 
-                    s.CancellationToken.ThrowIfCancellationRequested();
-
                     #region IDAT chunk
 
                     // TODO: make IDAT chunk writing progressive
@@ -204,17 +194,17 @@ namespace StbSharp
                     var datChunk = new PngChunkHeader(compressed.Length, "IDAT");
                     datChunk.WriteHeader(tmp, ref pos);
 
-                    s.Write(tmp.Slice(0, pos));
+                    await s.Write(tmp.AsMemory(0, pos));
                     pos = 0;
 
-                    var compressedSpan = compressed.Span;
+                    // TODO: fix this garbage alloc by creatign that "on demand" writer
+                    var compressedSpan = compressed.Span.ToArray();
+
                     int written = 0;
                     while (written < compressed.Length)
                     {
-                        s.CancellationToken.ThrowIfCancellationRequested();
-
                         int sliceLength = compressed.Length - written;
-                        s.Write(compressedSpan.Slice(written, sliceLength));
+                        await s.Write(compressedSpan.AsMemory(written, sliceLength));
 
                         written += sliceLength;
                         s.Progress(written / (double)compressed.Length * 0.01 + 0.99);
@@ -222,7 +212,7 @@ namespace StbSharp
 
                     // TODO: create a stream wrapper that can 
                     // both write/compress multiple chunks and calculate the CRC simultaneously
-                    datChunk.HashData(compressedSpan);
+                    datChunk.HashData(compressed.Span);
                     datChunk.WriteFooter(tmp, ref pos);
 
                     #endregion
@@ -233,11 +223,9 @@ namespace StbSharp
                     endChunk.WriteHeader(tmp, ref pos);
                     endChunk.WriteFooter(tmp, ref pos);
 
-                    s.Write(tmp.Slice(0, pos));
+                    await s.Write(tmp.AsMemory(0, pos));
 
                     #endregion
-
-                    return true;
                 }
             }
 
@@ -323,22 +311,8 @@ namespace StbSharp
                 int filterType,
                 Span<byte> scanline)
             {
-                int* mapping = stackalloc int[5];
-                mapping[0] = 0;
-                mapping[1] = 1;
-                mapping[2] = 2;
-                mapping[3] = 3;
-                mapping[4] = 4;
-
-                int* firstmap = stackalloc int[5];
-                firstmap[0] = 0;
-                firstmap[1] = 1;
-                firstmap[2] = 0;
-                firstmap[3] = 5;
-                firstmap[4] = 6;
-
-                int* filterMap = (y != 0) ? mapping : firstmap;
-                int type = filterMap[filterType];
+                var filterMap = (y != 0) ? FilterMapping : FirstFilterMapping;
+                int type = filterMap.Span[filterType];
                 if (type == 0)
                 {
                     row.CopyTo(scanline);

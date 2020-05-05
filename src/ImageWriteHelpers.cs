@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Threading.Tasks;
 using static StbSharp.ImageWrite;
 
 namespace StbSharp
@@ -15,9 +16,10 @@ namespace StbSharp
         /// Maximum size of one integer is 8 bytes.
         /// </para>
         /// </summary>
-        public static void WriteFormat(this in WriteState s, string format, ReadOnlySpan<long> values)
+        public static async Task WriteFormat(
+            this WriteState s, string format, ReadOnlyMemory<long> values)
         {
-            Span<byte> buffer = stackalloc byte[sizeof(long)];
+            var buffer = new byte[sizeof(long)];
 
             int valueIndex = 0;
             for (int i = 0; i < format.Length; ++i)
@@ -28,13 +30,13 @@ namespace StbSharp
 
                 if (digit > 0)
                 {
-                    long x = values[valueIndex];
+                    long x = values.Span[valueIndex];
                     for (int j = 0; j < digit; j++)
                     {
                         int shift = 8 * j;
                         buffer[j] = (byte)((x >> shift) & 0xff);
                     }
-                    s.Write(buffer.Slice(0, digit));
+                    await s.Write(buffer.AsMemory(0, digit));
                 }
                 valueIndex++;
             }
@@ -43,18 +45,72 @@ namespace StbSharp
         /// <summary>
         /// Used for writing raw data with headers.
         /// </summary>
-        public static bool OutFile(this in WriteState s,
+        public static async Task OutFile(
+            this WriteState s,
             bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int pad,
-            string format, ReadOnlySpan<long> values)
+            string format, ReadOnlyMemory<long> values)
         {
             if (s.Width <= 0 || s.Height <= 0)
-                return false;
+                throw new ArgumentException("Invalid image dimensions.", nameof(s));
 
-            WriteFormat(s, format, values);
-            WritePixels(s, flipRgb, verticalDirection, alphaDirection, pad, expandMono);
-            return true;
+            await WriteFormat(s, format, values);
+            await WritePixels(s, flipRgb, verticalDirection, alphaDirection, pad, expandMono);
         }
 
+        public static async Task WritePixels(
+            this WriteState s,
+            bool flipRgb, int verticalDirection, int alphaDirection, int scanlinePad, bool expandMono)
+        {
+            if (scanlinePad < 0 || scanlinePad > 4)
+                throw new ArgumentOutOfRangeException(nameof(scanlinePad));
+
+            if (s.Width <= 0 || s.Height <= 0)
+                return;
+
+            int row;
+            int rowEnd;
+            if (verticalDirection < 0)
+            {
+                rowEnd = -1;
+                row = s.Height - 1;
+            }
+            else
+            {
+                rowEnd = s.Height;
+                row = 0;
+            }
+
+            int width = s.Width;
+            int comp = s.Components;
+            int stride = width * comp;
+
+            var scanline = new byte[stride];
+            var scanlinePadSpan = new byte[scanlinePad];
+
+            for (; row != rowEnd; row += verticalDirection)
+            {
+                s.GetByteRow(row, scanline);
+
+                int offset = 0;
+                for (int i = 0; i < width; ++i)
+                {
+                    offset += WritePixel(
+                        flipRgb, alphaDirection, expandMono,
+                        scanline.AsSpan(i * comp, comp),
+                        scanline.AsSpan(offset, comp));
+                }
+
+                if (offset != stride)
+                {
+                    await s.Write(scanline.AsMemory(0, offset));
+                    await s.Write(scanlinePadSpan);
+                }
+                else
+                {
+                    await s.Write(scanline);
+                }
+            }
+        }
         public static void WriteUInt(uint value, Span<byte> destination, ref int position)
         {
             BinaryPrimitives.WriteUInt32BigEndian(destination.Slice(position), value);
@@ -115,61 +171,6 @@ namespace StbSharp
                 destination[offset++] = pixel[length - 1];
 
             return offset;
-        }
-
-        public static void WritePixels(this in WriteState s,
-            bool flipRgb, int verticalDirection, int alphaDirection, int scanlinePad, bool expandMono)
-        {
-            if (scanlinePad < 0 || scanlinePad > 4)
-                throw new ArgumentOutOfRangeException(nameof(scanlinePad));
-
-            Span<byte> scanlinePadSpan = stackalloc byte[scanlinePad];
-
-            if (s.Height <= 0)
-                return;
-
-            int row;
-            int rowEnd;
-            if (verticalDirection < 0)
-            {
-                rowEnd = -1;
-                row = s.Height - 1;
-            }
-            else
-            {
-                rowEnd = s.Height;
-                row = 0;
-            }
-
-            int width = s.Width;
-            int comp = s.Components;
-            int stride = width * comp;
-
-            ScratchBuffer scratch = s.GetScratch(stride);
-            Span<byte> scanline = scratch.AsSpan(0, stride);
-            
-            for (; row != rowEnd; row += verticalDirection)
-            {
-                s.GetByteRow(row, scanline);
-
-                int offset = 0;
-                for (int i = 0; i < width; ++i)
-                {
-                    var pixel = scanline.Slice(i * comp, comp);
-                    var output = scanline.Slice(offset, comp);
-                    offset += WritePixel(flipRgb, alphaDirection, expandMono, pixel, output);
-                }
-
-                if (offset != stride)
-                {
-                    s.Write(scanline.Slice(0, offset));
-                    s.Write(scanlinePadSpan);
-                }
-                else
-                {
-                    s.Write(scanline);
-                }
-            }
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace StbSharp
 {
@@ -8,39 +9,40 @@ namespace StbSharp
     {
         public delegate void GetPixelByteRowCallback(int row, Span<byte> destination);
         public delegate void GetPixelFloatRowCallback(int row, Span<float> destination);
-
-        public delegate void WriteCallback(ReadOnlySpan<byte> data);
         public delegate void WriteProgressCallback(double progress);
 
-        public readonly struct WriteState
+        public class WriteState
         {
-            public readonly GetPixelByteRowCallback GetByteRowCallback;
-            public readonly GetPixelFloatRowCallback GetFloatRowCallback;
+            // TODO: make this into a buffering writer
 
-            public readonly WriteCallback WriteCallback;
-            public readonly WriteProgressCallback ProgressCallback;
+            private byte[] _byteBuffer = new byte[1];
 
-            public readonly int Width;
-            public readonly int Height;
-            public readonly int Components; // TODO: replace with bit masks or something similar
+            public Stream Stream { get; }
+            public CancellationToken CancellationToken { get; }
 
-            public readonly CancellationToken CancellationToken;
-            public readonly Memory<byte> ScratchBuffer;
+            public GetPixelByteRowCallback GetByteRowCallback { get; }
+            public GetPixelFloatRowCallback GetFloatRowCallback { get; }
+            public WriteProgressCallback ProgressCallback { get; }
+
+            public int Width { get; }
+            public int Height { get; }
+            public int Components { get; } // TODO: replace with bit masks or something similar
 
             #region Constructors
 
             public WriteState(
+                Stream stream,
+                CancellationToken cancellationToken,
                 GetPixelByteRowCallback getPixelByteRow,
                 GetPixelFloatRowCallback getPixelFloatRow,
-                WriteCallback writeCallback,
                 WriteProgressCallback progressCallback,
                 int width,
                 int height,
-                int components,
-                CancellationToken cancellation,
-                Memory<byte> scratchBuffer)
+                int components)
             {
-                WriteCallback = writeCallback;
+                Stream = stream;
+                CancellationToken = cancellationToken;
+
                 GetByteRowCallback = getPixelByteRow;
                 GetFloatRowCallback = getPixelFloatRow;
                 ProgressCallback = progressCallback;
@@ -48,9 +50,6 @@ namespace StbSharp
                 Width = width;
                 Height = height;
                 Components = components;
-
-                CancellationToken = cancellation;
-                ScratchBuffer = scratchBuffer;
             }
 
             #endregion
@@ -67,24 +66,20 @@ namespace StbSharp
                 GetFloatRowCallback?.Invoke(row, destination);
             }
 
-            public void Write(ReadOnlySpan<byte> data)
+            public ValueTask Write(ReadOnlyMemory<byte> buffer)
             {
-                WriteCallback?.Invoke(data);
+                return Stream.WriteAsync(buffer, CancellationToken);
             }
 
-            public void WriteByte(byte value)
+            public ValueTask WriteByte(byte value)
             {
-                Write(stackalloc[] { value });
+                _byteBuffer[0] = value;
+                return Write(_byteBuffer);
             }
 
             public void Progress(double percentage)
             {
                 ProgressCallback?.Invoke(percentage);
-            }
-
-            public ScratchBuffer GetScratch(int minSize)
-            {
-                return new ScratchBuffer(ScratchBuffer.Span, minSize);
             }
         }
     }
