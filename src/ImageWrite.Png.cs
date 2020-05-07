@@ -9,12 +9,12 @@ namespace StbSharp
     {
         public static class Png
         {
-            public static ReadOnlyMemory<byte> FilterMapping => new byte[5]
+            public static ReadOnlyMemory<byte> FilterMapping { get; } = new byte[5]
             {
                 0, 1, 2, 3, 4
             };
 
-            public static ReadOnlyMemory<byte> FirstFilterMapping => new byte[5]
+            public static ReadOnlyMemory<byte> FirstFilterMapping { get; } = new byte[5]
             {
                 0, 1, 0, 5, 6
             };

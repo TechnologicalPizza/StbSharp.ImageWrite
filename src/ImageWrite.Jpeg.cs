@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace StbSharp
@@ -50,17 +51,17 @@ namespace StbSharp
                 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa
             };
 
-            public static ushort[,] YDC_HT =
+            public static readonly ushort[,] YDC_HT =
             {
                 {0, 2}, {2, 3}, {3, 3}, {4, 3}, {5, 3}, {6, 3}, {14, 4}, {30, 5}, {62, 6}, {126, 7}, {254, 8}, {510, 9}
             };
 
-            public static ushort[,] UVDC_HT =
+            public static readonly ushort[,] UVDC_HT =
             {
                 {0, 2}, {1, 2}, {2, 2}, {6, 3}, {14, 4}, {30, 5}, {62, 6}, {126, 7}, {254, 8}, {510, 9}, {1022, 10}, {2046, 11}
             };
 
-            public static ushort[,] YAC_HT =
+            public static readonly ushort[,] YAC_HT =
             {
                 {10, 4}, {0, 2}, {1, 2}, {4, 3}, {11, 4}, {26, 5}, {120, 7}, {248, 8}, {1014, 10}, {65410, 16},
                 {65411, 16}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {12, 4}, {27, 5}, {121, 7}, {502, 9},
@@ -92,7 +93,7 @@ namespace StbSharp
                 {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}
             };
 
-            public static ushort[,] UVAC_HT =
+            public static readonly ushort[,] UVAC_HT =
             {
                 {0, 2}, {1, 2}, {4, 3}, {10, 4}, {24, 5}, {25, 5}, {56, 6}, {120, 7}, {500, 9}, {1014, 10}, {4084, 12},
                 {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {11, 4}, {57, 6}, {246, 8}, {501, 9}, {2038, 11},
@@ -124,21 +125,21 @@ namespace StbSharp
                 {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}
             };
 
-            public static int[] YQT =
+            public static readonly int[] YQT =
             {
                 16, 11, 10, 16, 24, 40, 51, 61, 12, 12, 14, 19, 26, 58, 60, 55, 14, 13, 16, 24, 40, 57,
                 69, 56, 14, 17, 22, 29, 51, 87, 80, 62, 18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64,
                 81, 104, 113, 92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92, 95, 98, 112, 100, 103, 99
             };
 
-            public static int[] UVQT =
+            public static readonly int[] UVQT =
             {
                 17, 18, 24, 47, 99, 99, 99, 99, 18, 21, 26, 66, 99, 99, 99, 99, 24, 26, 56, 99, 99, 99, 99,
                 99, 47, 66, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
                 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99
             };
 
-            public static float[] aasf =
+            public static readonly float[] aasf =
             {
                 1.000000000f * 2.828427125f,
                 1.387039845f * 2.828427125f,
@@ -152,7 +153,8 @@ namespace StbSharp
 
             public static ReadOnlyMemory<byte> Head0 { get; } = new byte[]
             {
-                0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F',
+                0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10,
+                (byte)'J', (byte)'F', (byte)'I', (byte)'F',
                 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xFF, 0xDB, 0, 0x84, 0
             };
 
@@ -164,19 +166,20 @@ namespace StbSharp
             #endregion
 
             public static async ValueTask WriteBits(
-                WriteState s, ref int bitBuf, ref int bitCnt, ushort bs0, ushort bs1)
+                WriteState s, BitBuffer bitBuf, ushort bs0, ushort bs1)
             {
-                bitCnt += bs1;
-                bitBuf |= bs0 << (24 - bitCnt);
-                while (bitCnt >= 8)
+                bitBuf.S32Count += bs1;
+                bitBuf.S32Value |= bs0 << (24 - bitBuf.S32Count);
+
+                while (bitBuf.S32Count >= 8)
                 {
-                    byte c = (byte)((bitBuf >> 16) & 255);
+                    byte c = (byte)((bitBuf.S32Value >> 16) & 0xff);
                     await s.WriteByte(c);
-                    if (c == 255)
+                    if (c == 0xff)
                         await s.WriteByte(0);
 
-                    bitBuf <<= 8;
-                    bitCnt -= 8;
+                    bitBuf.S32Value <<= 8;
+                    bitBuf.S32Count -= 8;
                 }
             }
 
@@ -225,59 +228,31 @@ namespace StbSharp
                 d7 = z11 - z4;
             }
 
-            public static void CalcBits(int val, Span<ushort> bits)
+            public static void CalcBitsU16(int val, BitBuffer bitBuf)
             {
                 int tmp1 = val < 0 ? -val : val;
                 val = val < 0 ? val - 1 : val;
-                bits[1] = 1;
+
+                bitBuf.U16Count = 1;
                 while ((tmp1 >>= 1) != 0)
-                {
-                    bits[1]++;
-                }
-                bits[0] = (ushort)(val & ((1 << bits[1]) - 1));
+                    bitBuf.U16Count++;
+
+                bitBuf.U16Value = (ushort)(val & ((1 << bitBuf.U16Count) - 1));
             }
 
             public static async ValueTask<int> ProcessDU(
-                WriteState s, ref int bitBuf, ref int bitCnt,
-                Span<float> CDU, ReadOnlySpan<float> fdtbl, int DC, ushort[,] HTDC, ushort[,] HTAC)
+                WriteState s, BitBuffer bitBuf, int[] DU, int DC, ushort[,] HTDC, ushort[,] HTAC)
             {
-                for (int dataOff = 0; dataOff < CDU.Length; dataOff += 8)
-                {
-                    CalculateDCT(
-                        ref CDU[dataOff + 0], ref CDU[dataOff + 1], ref CDU[dataOff + 2], ref CDU[dataOff + 3],
-                        ref CDU[dataOff + 4], ref CDU[dataOff + 5], ref CDU[dataOff + 6], ref CDU[dataOff + 7]);
-                }
-
-                for (int dataOff = 0; dataOff < 8; dataOff++)
-                {
-                    CalculateDCT(
-                        ref CDU[dataOff + 00], ref CDU[dataOff + 08], ref CDU[dataOff + 16], ref CDU[dataOff + 24],
-                        ref CDU[dataOff + 32], ref CDU[dataOff + 40], ref CDU[dataOff + 48], ref CDU[dataOff + 56]);
-                }
-
-                Span<int> DU = stackalloc int[64];
-                var zigZag = ZigZag.Span;
-                for (int y = 0; y < 8; y++)
-                {
-                    for (int x = 0; x < 8; x++)
-                    {
-                        int i = y * 8 + x;
-                        float v = CDU[i] * fdtbl[i];
-                        DU[zigZag[i]] = (int)MathF.Round(v); //(v < 0 ? v - 0.5f : v + 0.5f);
-                    }
-                }
-
-                Span<ushort> bits = stackalloc ushort[2];
                 int diff = DU[0] - DC;
                 if (diff == 0)
                 {
-                    await WriteBits(s, ref bitBuf, ref bitCnt, HTDC[0, 0], HTDC[0, 1]);
+                    await WriteBits(s, bitBuf, HTDC[0, 0], HTDC[0, 1]);
                 }
                 else
                 {
-                    CalcBits(diff, bits);
-                    await WriteBits(s, ref bitBuf, ref bitCnt, HTDC[bits[1], 0], HTDC[bits[1], 1]);
-                    await WriteBits(s, ref bitBuf, ref bitCnt, bits[0], bits[1]);
+                    CalcBitsU16(diff, bitBuf);
+                    await WriteBits(s, bitBuf, HTDC[bitBuf.U16Count, 0], HTDC[bitBuf.U16Count, 1]);
+                    await WriteBits(s, bitBuf, bitBuf.U16Value, bitBuf.U16Count);
                 }
 
                 int end0pos = 63;
@@ -287,7 +262,7 @@ namespace StbSharp
 
                 if (end0pos == 0)
                 {
-                    await WriteBits(s, ref bitBuf, ref bitCnt, HTAC[0x00, 0], HTAC[0x00, 1]);
+                    await WriteBits(s, bitBuf, HTAC[0x00, 0], HTAC[0x00, 1]);
                     return DU[0];
                 }
 
@@ -297,40 +272,74 @@ namespace StbSharp
                     for (; (DU[i] == 0) && (i <= end0pos); i++)
                     {
                     }
+
                     int nrzeroes = i - startpos;
                     if (nrzeroes >= 16)
                     {
                         int lng = nrzeroes >> 4;
-                        int nrmarker = 0;
-                        for (nrmarker = 1; nrmarker <= lng; nrmarker++)
-                        {
-                            await WriteBits(s, ref bitBuf, ref bitCnt, HTAC[0xF0, 0], HTAC[0xF0, 1]);
-                        }
+                        for (int nrmarker = 1; nrmarker <= lng; nrmarker++)
+                            await WriteBits(s, bitBuf, HTAC[0xF0, 0], HTAC[0xF0, 1]);
+
                         nrzeroes &= 15;
                     }
 
-                    CalcBits(DU[i], bits);
-                    ushort bs0 = HTAC[(nrzeroes << 4) + bits[1], 0];
-                    ushort bs1 = HTAC[(nrzeroes << 4) + bits[1], 1];
-                    await WriteBits(s, ref bitBuf, ref bitCnt, bs0, bs1);
-                    await WriteBits(s, ref bitBuf, ref bitCnt, bits[0], bits[1]);
+                    CalcBitsU16(DU[i], bitBuf);
+                    ushort bs0 = HTAC[(nrzeroes << 4) + bitBuf.U16Count, 0];
+                    ushort bs1 = HTAC[(nrzeroes << 4) + bitBuf.U16Count, 1];
+                    await WriteBits(s, bitBuf, bs0, bs1);
+                    await WriteBits(s, bitBuf, bitBuf.U16Value, bitBuf.U16Count);
                 }
 
                 if (end0pos != 63)
-                {
-                    await WriteBits(s, ref bitBuf, ref bitCnt, EOB[0], EOB[1]);
-                }
+                    await WriteBits(s, bitBuf, HTAC[0x00, 0], HTAC[0x00, 1]);
 
                 return DU[0];
             }
 
             public static void CalculateDU(
-                Span<float> YDU, Span<float> UDU, Span<float> VDU, int pos,
+                Span<float> CDU, int pos,
                 float r, float g, float b)
             {
-                YDU[pos] = +0.29900f * r + 0.58700f * g + 0.11400f * b - 128;
-                UDU[pos] = -0.16874f * r - 0.33126f * g + 0.50000f * b;
-                VDU[pos] = +0.50000f * r - 0.41869f * g - 0.08131f * b;
+                var x = r * new Vector3(+0.29900f, -0.16874f, +0.50000f);
+                var y = g * new Vector3(+0.58700f, -0.33126f, -0.41869f);
+                var z = b * new Vector3(+0.11400f, +0.50000f, -0.08131f);
+                var s = x + y + z;
+
+                //float sx = +0.29900f * r + 0.58700f * g + 0.11400f * b;
+                //float sy = -0.16874f * r - 0.33126f * g + 0.50000f * b;
+                //float sz = +0.50000f * r - 0.41869f * g - 0.08131f * b;
+
+                CDU[pos] = s.X - 128;
+                CDU[pos + 64] = s.Y;
+                CDU[pos + 128] = s.Z;
+            }
+
+            public static void CalculateCDU(Span<float> CDU, ReadOnlySpan<float> fdtbl, Span<int> DU)
+            {
+                for (int dataOff = 0; dataOff < CDU.Length; dataOff += 8)
+                {
+                    CalculateDCT(
+                        ref CDU[dataOff + 0], ref CDU[dataOff + 1],
+                        ref CDU[dataOff + 2], ref CDU[dataOff + 3],
+                        ref CDU[dataOff + 4], ref CDU[dataOff + 5],
+                        ref CDU[dataOff + 6], ref CDU[dataOff + 7]);
+                }
+
+                for (int dataOff = 0; dataOff < 8; dataOff++)
+                {
+                    CalculateDCT(
+                        ref CDU[dataOff + 00], ref CDU[dataOff + 08],
+                        ref CDU[dataOff + 16], ref CDU[dataOff + 24],
+                        ref CDU[dataOff + 32], ref CDU[dataOff + 40],
+                        ref CDU[dataOff + 48], ref CDU[dataOff + 56]);
+                }
+
+                var zigZag = ZigZag.Span;
+                for (int i = 0; i < 64; i++)
+                {
+                    float v = CDU[i] * fdtbl[i];
+                    DU[zigZag[i]] = (int)MathF.Round(v); //(v < 0 ? v - 0.5f : v + 0.5f);
+                }
             }
 
             public static async Task WriteCore(WriteState s, int quality, bool useFloatPixels)
@@ -339,10 +348,13 @@ namespace StbSharp
                 int height = s.Height;
                 int comp = s.Components;
 
-                var fdtbl_Y = new float[64];
-                var fdtbl_UV = new float[64];
-                var YTable = new byte[64];
-                var UVTable = new byte[64];
+                var fdtbl = new float[64 * 2];
+                var fdtbl_Y = fdtbl.AsMemory(0 * 64, 64);
+                var fdtbl_UV = fdtbl.AsMemory(1 * 64, 64);
+
+                var tables = new byte[64 * 2];
+                var YTable = tables.AsMemory(0 * 64, 64);
+                var UVTable = tables.AsMemory(1 * 64, 64);
 
                 if (width == 0 || (height == 0))
                     throw new ArgumentException("Invalid image dimensions.", nameof(s));
@@ -354,22 +366,35 @@ namespace StbSharp
                 quality = quality < 1 ? 1 : quality > 100 ? 100 : quality;
                 quality = quality < 50 ? 5000 / quality : 200 - quality * 2;
 
-                for (int i = 0; i < 64; ++i)
+                void SetupTables()
                 {
-                    int uvti = 0;
-                    int yti = (YQT[i] * quality + 50) / 100;
-                    YTable[ZigZag.Span[i]] = (byte)(yti < 1 ? 1 : yti > 255 ? 255 : yti);
-                    uvti = (UVQT[i] * quality + 50) / 100;
-                    UVTable[ZigZag.Span[i]] = (byte)(uvti < 1 ? 1 : uvti > 255 ? 255 : uvti);
-                }
-                for (int row = 0, k = 0; row < 8; ++row)
-                {
-                    for (int col = 0; col < 8; ++col, ++k)
+                    var zigZag = ZigZag.Span;
+                    var yTable = YTable.Span;
+                    var uvTable = UVTable.Span;
+
+                    for (int i = 0; i < 64; i++)
                     {
-                        fdtbl_Y[k] = 1 / (YTable[ZigZag.Span[k]] * aasf[row] * aasf[col]);
-                        fdtbl_UV[k] = 1 / (UVTable[ZigZag.Span[k]] * aasf[row] * aasf[col]);
+                        int yti = (YQT[i] * quality + 50) / 100;
+                        yTable[zigZag[i]] = (byte)(yti < 1 ? 1 : yti > 255 ? 255 : yti);
+
+                        int uvti = (UVQT[i] * quality + 50) / 100;
+                        uvTable[zigZag[i]] = (byte)(uvti < 1 ? 1 : uvti > 255 ? 255 : uvti);
+                    }
+
+                    var span_fdtbl_Y = fdtbl_Y.Span;
+                    var span_fdtbl_UV = fdtbl_UV.Span;
+                    for (int row = 0, k = 0; row < 8; row++)
+                    {
+                        for (int col = 0; col < 8; col++, k++)
+                        {
+                            span_fdtbl_Y[k] = 1 / (yTable[zigZag[k]] * aasf[row] * aasf[col]);
+                            span_fdtbl_UV[k] = 1 / (uvTable[zigZag[k]] * aasf[row] * aasf[col]);
+                        }
                     }
                 }
+
+                SetupTables();
+
                 {
                     var head1 = new byte[24] {
                         0xFF,
@@ -423,20 +448,20 @@ namespace StbSharp
                 }
 
                 {
-                    var fillBits = new ushort[2] { 0x7F, 7 };
-
                     int DCY = 0;
                     int DCU = 0;
                     int DCV = 0;
-                    int bitBuf = 0;
-                    int bitCnt = 0;
                     int stride = width * comp;
                     int ofsG = comp > 2 ? 1 : 0;
                     int ofsB = comp > 2 ? 2 : 0;
 
-                    var YDU = new float[64];
-                    var UDU = new float[64];
-                    var VDU = new float[64];
+                    var CDU = new float[64 * 3].AsMemory();
+                    var YDU = CDU.Slice(0 * 64, 64);
+                    var UDU = CDU.Slice(1 * 64, 64);
+                    var VDU = CDU.Slice(2 * 64, 64);
+
+                    var bitBuf = new BitBuffer();
+                    var DU = new int[64];
 
                     float[] floatRowBuf = null;
                     byte[] byteRowBuf = null;
@@ -450,48 +475,69 @@ namespace StbSharp
                     {
                         for (int x = 0; x < width; x += 8)
                         {
-                            for (int row = y, pos = 0; row < (y + 8); row++)
+                            void ProcessBlockRow()
                             {
-                                int clamped_row = (row < height) ? row : height - 1;
+                                var cdu = CDU.Span;
 
-                                if (useFloatPixels)
+                                for (int row = y, pos = 0; row < (y + 8); row++)
                                 {
-                                    s.GetFloatRow(clamped_row, floatRowBuf);
-                                    for (int col = x; col < (x + 8); col++, pos++)
-                                    {
-                                        // TODO: somehow remove byte.maxval muls
+                                    int clamped_row = (row < height) ? row : height - 1;
 
-                                        int p = ((col < width) ? col : (width - 1)) * comp;
-                                        float r = floatRowBuf[p + 0000] * byte.MaxValue;
-                                        float g = floatRowBuf[p + ofsG] * byte.MaxValue;
-                                        float b = floatRowBuf[p + ofsB] * byte.MaxValue;
-                                        CalculateDU(YDU, UDU, VDU, pos, r, g, b);
+                                    if (useFloatPixels)
+                                    {
+                                        s.GetFloatRow(clamped_row, floatRowBuf);
+                                        for (int col = x; col < (x + 8); col++, pos++)
+                                        {
+                                            // TODO: somehow remove byte.maxval muls
+
+                                            int p = ((col < width) ? col : (width - 1)) * comp;
+                                            float r = floatRowBuf[p + 0000] * byte.MaxValue;
+                                            float g = floatRowBuf[p + ofsG] * byte.MaxValue;
+                                            float b = floatRowBuf[p + ofsB] * byte.MaxValue;
+                                            CalculateDU(cdu, pos, r, g, b);
+                                        }
                                     }
-                                }
-                                else
-                                {
-                                    s.GetByteRow(clamped_row, byteRowBuf);
-                                    for (int col = x; col < (x + 8); col++, pos++)
+                                    else
                                     {
-                                        int p = ((col < width) ? col : (width - 1)) * comp;
-                                        float r = byteRowBuf[p + 0000];
-                                        float g = byteRowBuf[p + ofsG];
-                                        float b = byteRowBuf[p + ofsB];
-                                        CalculateDU(YDU, UDU, VDU, pos, r, g, b);
+                                        s.GetByteRow(clamped_row, byteRowBuf);
+                                        for (int col = x; col < (x + 8); col++, pos++)
+                                        {
+                                            int p = ((col < width) ? col : (width - 1)) * comp;
+                                            float r = byteRowBuf[p + 0000];
+                                            float g = byteRowBuf[p + ofsG];
+                                            float b = byteRowBuf[p + ofsB];
+                                            CalculateDU(cdu, pos, r, g, b);
+                                        }
                                     }
                                 }
                             }
+                            ProcessBlockRow();
 
-                            DCY = ProcessDU(s, ref bitBuf, ref bitCnt, YDU, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                            DCU = ProcessDU(s, ref bitBuf, ref bitCnt, UDU, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
-                            DCV = ProcessDU(s, ref bitBuf, ref bitCnt, VDU, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
+                            CalculateCDU(YDU.Span, fdtbl_Y.Span, DU);
+                            DCY = await ProcessDU(s, bitBuf, DU, DCY, YDC_HT, YAC_HT);
+
+                            CalculateCDU(UDU.Span, fdtbl_UV.Span, DU);
+                            DCU = await ProcessDU(s, bitBuf, DU, DCU, UVDC_HT, UVAC_HT);
+
+                            CalculateCDU(VDU.Span, fdtbl_UV.Span, DU);
+                            DCV = await ProcessDU(s, bitBuf, DU, DCV, UVDC_HT, UVAC_HT);
                         }
                     }
-                    await WriteBits(s, ref bitBuf, ref bitCnt, fillBits[0], fillBits[1]);
+
+                    await WriteBits(s, bitBuf, 0x7F, 7);
                 }
 
                 await s.WriteByte(0xFF);
                 await s.WriteByte(0xD9);
+            }
+
+            public class BitBuffer
+            {
+                public int S32Value;
+                public int S32Count;
+
+                public ushort U16Value;
+                public ushort U16Count;
             }
         }
     }
