@@ -42,7 +42,7 @@ namespace StbSharp
                     forceFilter = -1;
 
                 // TODO: remove this (most often huge) alloc
-                //      consider a Stream where you Write uncompressed pixel data
+                //      create a Stream where you Write uncompressed pixel data
                 //      and it automatically creates IDAT chunks
                 //    look at comment in IDAT code region
 
