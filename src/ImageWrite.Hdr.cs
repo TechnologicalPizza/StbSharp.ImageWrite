@@ -1,6 +1,5 @@
 using System;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace StbSharp
 {
@@ -11,7 +10,7 @@ namespace StbSharp
             public static ReadOnlyMemory<byte> FileHeaderBase { get; } =
                 Encoding.UTF8.GetBytes("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n");
 
-            public static async Task Write(WriteState s)
+            public static void Write(WriteState s)
             {
                 int width = s.Width;
                 int height = s.Height;
@@ -21,8 +20,8 @@ namespace StbSharp
                 byte[] headerBytes = Encoding.UTF8.GetBytes(string.Format(
                     "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", height.ToString(), width.ToString()));
 
-                await s.Write(FileHeaderBase);
-                await s.Write(headerBytes);
+                s.Write(FileHeaderBase.Span);
+                s.Write(headerBytes);
 
                 byte[] scratch = default;
                 if (width < 8 || width >= 32768)
@@ -33,37 +32,37 @@ namespace StbSharp
                 for (int row = 0; row < height; row++)
                 {
                     s.GetFloatRow(row, rowBuffer);
-                    await WriteHdrScanline(s, rowBuffer, scratch);
+                    WriteHdrScanline(s, rowBuffer, scratch);
                 }
             }
 
-            public static async ValueTask WriteRunData(WriteState s, int length, byte databyte)
+            public static void WriteRunData(WriteState s, int length, byte databyte)
             {
-                await s.WriteByte((byte)((length + 128) & 0xff)); // lengthbyte
-                await s.WriteByte(databyte);
+                s.WriteByte((byte)((length + 128) & 0xff)); // lengthbyte
+                s.WriteByte(databyte);
             }
 
-            public static async ValueTask WriteDumpData(WriteState s, ReadOnlyMemory<byte> data)
+            public static void WriteDumpData(WriteState s, ReadOnlySpan<byte> data)
             {
-                await s.WriteByte((byte)((data.Length) & 0xff)); // lengthbyte
-                await s.Write(data);
+                s.WriteByte((byte)((data.Length) & 0xff)); // lengthbyte
+                s.Write(data);
             }
 
-            public static async ValueTask WriteHdrScanline(
+            public static void WriteHdrScanline(
                 WriteState s, float[] data, byte[] buffer)
             {
                 int width = s.Width;
                 int n = s.Components;
 
-                var scanlineHeader = new byte[4] {
+                Span<byte> scanlineHeader = stackalloc byte[4] {
                     2,
                     2,
                     (byte)((width & 0xff00) >> 8),
                     (byte)(width & 0x00ff),
                 };
 
-                var rgbe = new byte[4];
-                var linear = new float[3];
+                Span<byte> rgbe = stackalloc byte[4];
+                Span<float> linear = stackalloc float[3];
 
                 if (width < 8 || width >= buffer.Length / 4)
                 {
@@ -84,7 +83,7 @@ namespace StbSharp
                         }
 
                         LinearToRgbe(linear, rgbe);
-                        await s.Write(rgbe);
+                        s.Write(rgbe);
                     }
                 }
                 else
@@ -112,7 +111,7 @@ namespace StbSharp
                         buffer[x + width * 3] = rgbe[3];
                     }
 
-                    await s.Write(scanlineHeader);
+                    s.Write(scanlineHeader);
 
                     for (int c = 0; c < 4; c++)
                     {
@@ -139,7 +138,7 @@ namespace StbSharp
                                 if (len > 128)
                                     len = 128;
 
-                                await WriteDumpData(s, buffer.AsMemory(o + x, len));
+                                WriteDumpData(s, buffer.AsSpan(o + x, len));
                                 x += len;
                             }
 
@@ -154,7 +153,7 @@ namespace StbSharp
                                     if (len > 127)
                                         len = 127;
 
-                                    await WriteRunData(s, len, buffer[o + x]);
+                                    WriteRunData(s, len, buffer[o + x]);
                                     x += len;
                                 }
                             }

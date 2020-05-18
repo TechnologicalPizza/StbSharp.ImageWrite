@@ -1,7 +1,6 @@
 using System;
 using System.Buffers.Binary;
 using System.IO.Compression;
-using System.Threading.Tasks;
 
 namespace StbSharp
 {
@@ -9,14 +8,24 @@ namespace StbSharp
     {
         public static class Png
         {
-            public static ReadOnlyMemory<byte> FilterMapping { get; } = new byte[5]
+            public static ReadOnlySpan<byte> FilterMapping => new byte[]
             {
                 0, 1, 2, 3, 4
             };
 
-            public static ReadOnlyMemory<byte> FirstFilterMapping { get; } = new byte[5]
+            public static ReadOnlySpan<byte> FirstFilterMapping => new byte[]
             {
                 0, 1, 0, 5, 6
+            };
+
+            public static ReadOnlySpan<byte> ColorTypeMap => new byte[]
+            {
+                255, 0, 4, 2, 6
+            };
+
+            public static ReadOnlySpan<byte> Signature => new byte[]
+            {
+                137, 80, 78, 71, 13, 10, 26, 10
             };
 
             public static int WriteForceFilter = -1;
@@ -25,7 +34,7 @@ namespace StbSharp
             // TODO: split IDAT chunk into multiple
             // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
 
-            public static async Task Write(WriteState s, CompressionLevel level)
+            public static void Write(WriteState s, CompressionLevel level)
             {
                 ZlibHeader.ConvertLevel(level); // acts as a parameter check
 
@@ -108,8 +117,8 @@ namespace StbSharp
 
                     SwapBuffers();
 
-                    var filtSlice = filt.AsMemory(y * (stride + 1), stride + 1);
-                    filtSlice.Span[0] = (byte)filterType;
+                    var filtSlice = filt.AsSpan(y * (stride + 1), stride + 1);
+                    filtSlice[0] = (byte)filterType;
                     lineBuffer.CopyTo(filtSlice.Slice(1));
 
                     // TODO: tidy this up a notch so it's easier to reuse in other implementations
@@ -118,7 +127,7 @@ namespace StbSharp
                         progressStep += w;
                         while (progressStep >= progressStepSize)
                         {
-                            s.Progress(y / (double)h * 0.5);
+                            s.ReportProgress(y / (float)h * 0.5f);
                             progressStep -= progressStepSize;
                         }
                     }
@@ -126,11 +135,11 @@ namespace StbSharp
 
                 // TODO: redesign chunk encoding to write partial chunks instead of one large
 
-                Action<double> weightedProgress = null;
+                Action<float> weightedProgress = null;
                 if (s.ProgressCallback != null)
                 {
                     var ctx = s;
-                    weightedProgress = (p) => ctx.Progress(p * 0.49 + 0.5);
+                    weightedProgress = (p) => ctx.ReportProgress(p * 0.49f + 0.5f);
                 }
 
                 var compressed = Zlib.DeflateCompress(
@@ -138,29 +147,12 @@ namespace StbSharp
 
                 using (compressed)
                 {
-                    var colorTypeMap = new byte[5];
-                    colorTypeMap[0] = 255;
-                    colorTypeMap[1] = 0;
-                    colorTypeMap[2] = 4;
-                    colorTypeMap[3] = 2;
-                    colorTypeMap[4] = 6;
-
                     // sizeof sig + (fields + CRCs)
-                    var tmp = new byte[8 + sizeof(uint) * (5 + 2) + 5];
+                    Span<byte> tmp = stackalloc byte[Signature.Length + sizeof(uint) * (5 + 2) + 5];
                     int pos = 0;
 
-                    #region PNG Signature
-
-                    tmp[pos++] = 137;
-                    tmp[pos++] = 80;
-                    tmp[pos++] = 78;
-                    tmp[pos++] = 71;
-                    tmp[pos++] = 13;
-                    tmp[pos++] = 10;
-                    tmp[pos++] = 26;
-                    tmp[pos++] = 10;
-
-                    #endregion
+                    Signature.CopyTo(tmp);
+                    pos += Signature.Length;
 
                     #region IHDR chunk
 
@@ -170,7 +162,7 @@ namespace StbSharp
                     hdrChunk.WriteUInt32((uint)w, tmp, ref pos); // width
                     hdrChunk.WriteUInt32((uint)h, tmp, ref pos); // height
 
-                    byte colorType = colorTypeMap[n];
+                    byte colorType = ColorTypeMap[n];
                     hdrChunk.WriteByte(8, tmp, ref pos); // bit depth
                     hdrChunk.WriteByte(colorType, tmp, ref pos); // color type
                     hdrChunk.WriteByte(0, tmp, ref pos); // compression method
@@ -194,7 +186,7 @@ namespace StbSharp
                     var datChunk = new PngChunkHeader(compressed.Length, "IDAT");
                     datChunk.WriteHeader(tmp, ref pos);
 
-                    await s.Write(tmp.AsMemory(0, pos));
+                    s.Write(tmp.Slice(0, pos));
                     pos = 0;
 
                     // TODO: fix this garbage alloc by creatign that "on demand" writer
@@ -204,10 +196,10 @@ namespace StbSharp
                     while (written < compressed.Length)
                     {
                         int sliceLength = compressed.Length - written;
-                        await s.Write(compressedSpan.AsMemory(written, sliceLength));
+                        s.Write(compressedSpan.AsSpan(written, sliceLength));
 
                         written += sliceLength;
-                        s.Progress(written / (double)compressed.Length * 0.01 + 0.99);
+                        s.ReportProgress(written / (float)compressed.Length * 0.01f + 0.99f);
                     }
 
                     // TODO: create a stream wrapper that can 
@@ -223,7 +215,7 @@ namespace StbSharp
                     endChunk.WriteHeader(tmp, ref pos);
                     endChunk.WriteFooter(tmp, ref pos);
 
-                    await s.Write(tmp.AsMemory(0, pos));
+                    s.Write(tmp.Slice(0, pos));
 
                     #endregion
                 }
@@ -312,7 +304,7 @@ namespace StbSharp
                 Span<byte> scanline)
             {
                 var filterMap = (y != 0) ? FilterMapping : FirstFilterMapping;
-                int type = filterMap.Span[filterType];
+                int type = filterMap[filterType];
                 if (type == 0)
                 {
                     row.CopyTo(scanline);

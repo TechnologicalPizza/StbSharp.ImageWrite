@@ -13,22 +13,22 @@ namespace StbSharp
                 46, 51, 55, 60, 21, 34, 37, 47, 50, 56, 59, 61, 35, 36, 48, 49, 57, 58, 62, 63
             };
 
-            public static ReadOnlyMemory<byte> std_DcLuminanceNrcodes { get; } = new byte[] 
+            public static ReadOnlySpan<byte> std_DcLuminanceNrcodes => new byte[]
             {
-                0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 
+                0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0
             };
-           
-            public static ReadOnlyMemory<byte> std_DcLuminanceValues { get; } = new byte[]
-            { 
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 
+
+            public static ReadOnlySpan<byte> std_DcLuminanceValues => new byte[]
+            {
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
             };
-            
-            public static ReadOnlyMemory<byte> std_AcLuminanceNrcodes { get; } = new byte[] 
+
+            public static ReadOnlySpan<byte> std_AcLuminanceNrcodes => new byte[]
             {
                 0, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d
             };
 
-            public static ReadOnlyMemory<byte> std_AcLuminanceValues { get; } = new byte[]
+            public static ReadOnlySpan<byte> std_AcLuminanceValues => new byte[]
             {
                 0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07, 0x22, 0x71,
                 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42, 0xb1, 0xc1, 0x15, 0x52, 0xd1, 0xf0, 0x24, 0x33, 0x62, 0x72,
@@ -41,22 +41,22 @@ namespace StbSharp
                 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa
             };
 
-            public static ReadOnlyMemory<byte> std_DcChrominanceNrcodes { get; } = new byte[] 
-            { 
-                0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 
-            };
-            
-            public static ReadOnlyMemory<byte> std_DcChrominanceValues { get; } = new byte[] 
-            { 
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 
-            };
-            
-            public static ReadOnlyMemory<byte> std_AcChrominanceNrcodes { get; } = new byte[] 
+            public static ReadOnlySpan<byte> std_DcChrominanceNrcodes => new byte[]
             {
-                0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77 
+                0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0
             };
 
-            public static ReadOnlyMemory<byte> std_AcChrominanceValues { get; } = new byte[]
+            public static ReadOnlySpan<byte> std_DcChrominanceValues => new byte[]
+            {
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+            };
+
+            public static ReadOnlySpan<byte> std_AcChrominanceNrcodes => new byte[]
+            {
+                0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77
+            };
+
+            public static ReadOnlySpan<byte> std_AcChrominanceValues => new byte[]
             {
                 0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21, 0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71, 0x13, 0x22,
                 0x32, 0x81, 0x08, 0x14, 0x42, 0x91, 0xa1, 0xb1, 0xc1, 0x09, 0x23, 0x33, 0x52, 0xf0, 0x15, 0x62, 0x72, 0xd1,
@@ -651,14 +651,14 @@ namespace StbSharp
                 0.275899379f * 2.828427125f
             };
 
-            public static ReadOnlyMemory<byte> Head0 { get; } = new byte[]
+            public static ReadOnlySpan<byte> Head0 => new byte[]
             {
                 0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10,
                 (byte)'J', (byte)'F', (byte)'I', (byte)'F',
                 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xFF, 0xDB, 0, 0x84, 0
             };
 
-            public static ReadOnlyMemory<byte> Head2 { get; } = new byte[]
+            public static ReadOnlySpan<byte> Head2 => new byte[]
             {
                 0xFF, 0xDA, 0, 0xC, 3, 1, 0, 2, 0x11, 3, 0x11, 0, 0x3F, 0
             };

@@ -17,7 +17,7 @@ namespace StbSharp
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
                 CancellationToken cancellationToken,
-                Action<double> onProgress = null);
+                Action<float> onProgress = null);
 
             /// <summary>
             /// Custom zlib deflate (RFC 1951) compression implementation 
@@ -34,7 +34,7 @@ namespace StbSharp
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
                 CancellationToken cancellationToken,
-                Action<double> onProgress = null)
+                Action<float> onProgress = null)
             {
                 if (CustomDeflateCompress != null)
                     return CustomDeflateCompress.Invoke(data, level, cancellationToken, onProgress);
@@ -48,7 +48,7 @@ namespace StbSharp
                 output.WriteByte(header.GetCMF());
                 output.WriteByte(header.GetFLG());
 
-                byte[] copyBuffer = new byte[1024 * 8];
+                Span<byte> copyBuffer = stackalloc byte[1024 * 2];
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -61,19 +61,19 @@ namespace StbSharp
 
                         int count = Math.Min(data.Length - totalRead, copyBuffer.Length);
                         data.Slice(totalRead, count).CopyTo(copyBuffer);
-                        deflate.Write(copyBuffer, 0, count);
+                        deflate.Write(copyBuffer.Slice(0, count));
 
                         totalRead += count;
-                        onProgress?.Invoke(totalRead / (double)data.Length);
+                        onProgress?.Invoke(totalRead / (float)data.Length);
                     }
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
 
                 uint adlerSum = Adler32.Calculate(data);
-                byte[] adlerSumBytes = new byte[sizeof(uint)];
+                Span<byte> adlerSumBytes = stackalloc byte[sizeof(uint)];
                 BinaryPrimitives.WriteUInt32BigEndian(adlerSumBytes, adlerSum);
-                output.Write(adlerSumBytes, 0, adlerSumBytes.Length);
+                output.Write(adlerSumBytes);
 
                 cancellationToken.ThrowIfCancellationRequested();
 

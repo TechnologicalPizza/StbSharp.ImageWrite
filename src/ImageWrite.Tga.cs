@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Tasks;
 
 namespace StbSharp
 {
@@ -7,7 +6,7 @@ namespace StbSharp
     {
         public static class Tga
         {
-            public static async Task Write(WriteState s, bool useRLE)
+            public static void Write(WriteState s, bool useRLE)
             {
                 int width = s.Width;
                 int height = s.Height;
@@ -22,7 +21,7 @@ namespace StbSharp
 
                 if (!useRLE)
                 {
-                    var headers = new long[]
+                    Span<long> headers = stackalloc long[]
                     {
                         0,
                         0,
@@ -38,12 +37,12 @@ namespace StbSharp
                         hasAlpha * 8
                     };
 
-                    await ImageWriteHelpers.OutFile(
+                    ImageWriteHelpers.OutFile(
                         s, true, -1, false, hasAlpha, 0, "111 221 2222 11", headers);
                 }
                 else
                 {
-                    var headers = new long[]
+                    Span<long> headers = stackalloc long[]
                     {
                         0,
                         0,
@@ -58,14 +57,14 @@ namespace StbSharp
                         (colorbytes + hasAlpha) * 8,
                         hasAlpha * 8
                     };
-                    await ImageWriteHelpers.WriteFormat(s, "111 221 2222 11", headers);
+                    ImageWriteHelpers.WriteFormat(s, "111 221 2222 11", headers);
 
-                    var rowScratch = new byte[width * comp].AsMemory();
-                    var outBuffer = new byte[4];
+                    var rowScratch = new byte[width * comp].AsSpan();
+                    Span<byte> outBuffer = stackalloc byte[4];
 
                     for (int y = height; y-- > 0;)
                     {
-                        s.GetByteRow(y, rowScratch.Span);
+                        s.GetByteRow(y, rowScratch);
 
                         int len;
                         for (int x = 0; x < width; x += len)
@@ -78,14 +77,14 @@ namespace StbSharp
                             {
                                 len++;
                                 var next = rowScratch.Slice((x + 1) * comp);
-                                diff = CRuntime.MemCompare<byte>(begin.Span, next.Span, comp);
+                                diff = CRuntime.MemCompare<byte>(begin, next, comp);
                                 if (diff != 0)
                                 {
                                     var prev = begin;
                                     for (int k = x + 2; (k < width) && (len < 128); ++k)
                                     {
                                         var pixel = rowScratch.Slice(k * comp);
-                                        if (CRuntime.MemCompare<byte>(prev.Span, pixel.Span, comp) != 0)
+                                        if (CRuntime.MemCompare<byte>(prev, pixel, comp) != 0)
                                         {
                                             prev = prev.Slice(comp);
                                             len++;
@@ -102,7 +101,7 @@ namespace StbSharp
                                     for (int k = x + 2; (k < width) && (len < 128); ++k)
                                     {
                                         var pixel = rowScratch.Slice(k * comp);
-                                        if (CRuntime.MemCompare<byte>(begin.Span, pixel.Span, comp) == 0)
+                                        if (CRuntime.MemCompare<byte>(begin, pixel, comp) == 0)
                                             len++;
                                         else
                                             break;
@@ -112,26 +111,26 @@ namespace StbSharp
 
                             if (diff != 0)
                             {
-                                await s.WriteByte((byte)((len - 1) & 0xff));
+                                s.WriteByte((byte)((len - 1) & 0xff));
 
                                 for (int k = 0; k < len; k++)
                                 {
                                     var pixel = begin.Slice(k * comp, comp);
                                     int count = ImageWriteHelpers.WritePixel(
-                                        true, hasAlpha, false, pixel.Span, outBuffer);
+                                        true, hasAlpha, false, pixel, outBuffer);
 
-                                    await s.Write(outBuffer.AsMemory(0, count));
+                                    s.Write(outBuffer.Slice(0, count));
                                 }
                             }
                             else
                             {
-                                await s.WriteByte((byte)((len - 129) & 0xff));
+                                s.WriteByte((byte)((len - 129) & 0xff));
 
                                 var pixel = begin.Slice(0, comp);
                                 int count = ImageWriteHelpers.WritePixel(
-                                    true, hasAlpha, false, pixel.Span, outBuffer);
+                                    true, hasAlpha, false, pixel, outBuffer);
 
-                                await s.Write(outBuffer.AsMemory(0, count));
+                                s.Write(outBuffer.Slice(0, count));
                             }
                         }
                     }

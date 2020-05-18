@@ -1,16 +1,14 @@
 using System;
-using System.Buffers;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace StbSharp
 {
     public static partial class ImageWrite
     {
-        public delegate void WriteProgressCallback(double progress);
+        public delegate void WriteProgressCallback(float progress);
 
-        public abstract class WriteState : IAsyncDisposable
+        public abstract class WriteState : IDisposable
         {
             private byte[] _buffer;
             private int _bufferOffset;
@@ -21,6 +19,9 @@ namespace StbSharp
 
             public abstract int Width { get; }
             public abstract int Height { get; }
+
+            // TODO: make similar system to VectorComponentInfo
+            public abstract int Depth { get; }
             public abstract int Components { get; }
 
             public WriteState(
@@ -39,49 +40,49 @@ namespace StbSharp
 
             public abstract void GetFloatRow(int row, Span<float> destination);
 
-            public void Progress(double percentage)
+            public void ReportProgress(float percentage)
             {
                 ProgressCallback?.Invoke(percentage);
             }
 
-            public async ValueTask Write(ReadOnlyMemory<byte> buffer)
+            public void Write(ReadOnlySpan<byte> buffer)
             {
                 if (_bufferOffset + buffer.Length > _buffer.Length)
                 {
-                    await TryFlush();
-                    await Stream.WriteAsync(buffer, CancellationToken);
+                    TryFlush();
+                    Stream.Write(buffer);
                 }
                 else
                 {
-                    buffer.CopyTo(_buffer.AsMemory(_bufferOffset));
+                    buffer.CopyTo(_buffer.AsSpan(_bufferOffset));
                     _bufferOffset += buffer.Length;
                 }
             }
 
-            public async ValueTask WriteByte(byte value)
+            public void WriteByte(byte value)
             {
                 if (_bufferOffset + sizeof(byte) >= _buffer.Length)
-                    await Flush();
+                    Flush();
 
                 _buffer[_bufferOffset++] = value;
             }
 
-            private async ValueTask Flush()
+            private void Flush()
             {
-                var slice = _buffer.AsMemory(0, _bufferOffset);
-                await Stream.WriteAsync(slice, CancellationToken);
+                var slice = _buffer.AsSpan(0, _bufferOffset);
+                Stream.Write(slice);
                 _bufferOffset = 0;
             }
 
-            public async ValueTask TryFlush()
+            public void TryFlush()
             {
                 if (_bufferOffset > 0)
-                    await Flush();
+                    Flush();
             }
 
-            public async ValueTask DisposeAsync()
+            public void Dispose()
             {
-                await TryFlush();
+                TryFlush();
             }
         }
 
@@ -94,6 +95,7 @@ namespace StbSharp
             public override int Height => PixelRowProvider.Height;
 
             // TODO: replace with bit masks or something similar
+            public override int Depth => PixelRowProvider.Depth;
             public override int Components => PixelRowProvider.Components;
 
             #region Constructors
