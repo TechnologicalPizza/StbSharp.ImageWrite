@@ -331,7 +331,7 @@ namespace StbSharp
 
                     case 4:
                         for (int i = 0; i < n; ++i)
-                            scanline[i] = (byte)(row[i] - CRuntime.Paeth32(0, previousRow[i], 0));
+                            scanline[i] = (byte)(row[i] - MathHelper.Paeth32(0, previousRow[i], 0));
                         break;
                 }
 
@@ -355,7 +355,7 @@ namespace StbSharp
                     case 4:
                         for (int i = n; i < scanline.Length; ++i)
                             scanline[i] = (byte)(
-                                row[i] - CRuntime.Paeth32(row[i - n], previousRow[i], previousRow[i - n]));
+                                row[i] - MathHelper.Paeth32(row[i - n], previousRow[i], previousRow[i - n]));
                         break;
 
                     case 5:
@@ -365,7 +365,7 @@ namespace StbSharp
 
                     case 6:
                         for (int i = n; i < scanline.Length; ++i)
-                            scanline[i] = (byte)(row[i] - CRuntime.Paeth32(row[i - n], 0, 0));
+                            scanline[i] = (byte)(row[i] - MathHelper.Paeth32(row[i - n], 0, 0));
                         break;
                 }
             }

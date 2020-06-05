@@ -175,7 +175,7 @@ namespace StbSharp
                 }
                 else
                 {
-                    float normalize = (float)(CRuntime.FractionExponent(
+                    float normalize = (float)(MathHelper.FractionExponent(
                         maxcomp, out int exponent) * 256.0 / maxcomp);
 
                     destination[0] = (byte)(source[0] * normalize);
