@@ -71,20 +71,22 @@ namespace StbSharp
                         {
                             var begin = rowScratch.Slice(x * comp);
 
-                            int diff = 1;
+                            // TODO: optimize
+
+                            bool diff = false;
                             len = 1;
                             if (x < (width - 1))
                             {
                                 len++;
                                 var next = rowScratch.Slice((x + 1) * comp);
-                                diff = CRuntime.MemCompare<byte>(begin, next, comp);
-                                if (diff != 0)
+                                diff = begin.Slice(0, comp).SequenceEqual(next.Slice(0, comp));
+                                if (!diff)
                                 {
                                     var prev = begin;
                                     for (int k = x + 2; (k < width) && (len < 128); ++k)
                                     {
                                         var pixel = rowScratch.Slice(k * comp);
-                                        if (CRuntime.MemCompare<byte>(prev, pixel, comp) != 0)
+                                        if (!prev.Slice(0, comp).SequenceEqual(pixel.Slice(0, comp)))
                                         {
                                             prev = prev.Slice(comp);
                                             len++;
@@ -101,7 +103,7 @@ namespace StbSharp
                                     for (int k = x + 2; (k < width) && (len < 128); ++k)
                                     {
                                         var pixel = rowScratch.Slice(k * comp);
-                                        if (CRuntime.MemCompare<byte>(begin, pixel, comp) == 0)
+                                        if (begin.Slice(0, comp).SequenceEqual(pixel.Slice(0, comp)))
                                             len++;
                                         else
                                             break;
@@ -109,7 +111,7 @@ namespace StbSharp
                                 }
                             }
 
-                            if (diff != 0)
+                            if (!diff)
                             {
                                 s.WriteByte((byte)((len - 1) & 0xff));
 
