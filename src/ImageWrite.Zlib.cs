@@ -48,7 +48,7 @@ namespace StbSharp
                 output.WriteByte(header.GetCMF());
                 output.WriteByte(header.GetFLG());
 
-                Span<byte> copyBuffer = stackalloc byte[1024 * 2];
+                Span<byte> copyBuffer = stackalloc byte[4096];
 
                 cancellationToken.ThrowIfCancellationRequested();
 
