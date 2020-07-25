@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Numerics;
 
 namespace StbSharp
@@ -34,6 +35,8 @@ namespace StbSharp
             public static void WriteBits(
                 WriteState s, ref BitBuffer32 bitBuf, ushort bs0, ushort bs1)
             {
+                Debug.Assert(s != null);
+
                 bitBuf.Count += bs1;
                 bitBuf.Value |= bs0 << (24 - bitBuf.Count);
 
@@ -118,10 +121,14 @@ namespace StbSharp
 
             public static int ProcessDU(
                 WriteState s, ref BitBuffer32 bitBuf,
-                Span<float> CDU, Span<float> fdtbl, int DC, PointU16[] HTDC, PointU16[] HTAC)
+                Span<float> CDU, int duStride, Span<float> fdtbl, int DC,
+                PointU16[] HTDC, PointU16[] HTAC)
             {
-                Span<int> DU = stackalloc int[64];
-                CalculateCDU(CDU, fdtbl, DU);
+                Debug.Assert(HTDC != null);
+                Debug.Assert(HTAC != null);
+
+                Span<int> DU = stackalloc int[duStride * 8];
+                CalculateCDU(CDU, duStride, fdtbl, DU);
 
                 int diff = DU[0] - DC;
                 if (diff == 0)
@@ -192,36 +199,53 @@ namespace StbSharp
                 VDU[pos] = s.Z;
             }
 
-            public static void CalculateCDU(Span<float> CDU, ReadOnlySpan<float> fdtbl, Span<int> DU)
+            public static void CalculateCDU(Span<float> CDU, int duStride, ReadOnlySpan<float> fdtbl, Span<int> DU)
             {
-                for (int off = 0; off < CDU.Length; off += 8)
+                for (int off = 0; off < CDU.Length; off += duStride)
                 {
                     CalculateDCT(
-                        ref CDU[off + 0], ref CDU[off + 1],
-                        ref CDU[off + 2], ref CDU[off + 3],
-                        ref CDU[off + 4], ref CDU[off + 5],
-                        ref CDU[off + 6], ref CDU[off + 7]);
+                        ref CDU[off + 0],
+                        ref CDU[off + 1],
+                        ref CDU[off + 2],
+                        ref CDU[off + 3],
+                        ref CDU[off + 4],
+                        ref CDU[off + 5],
+                        ref CDU[off + 6],
+                        ref CDU[off + 7]);
                 }
 
                 for (int off = 0; off < 8; off++)
                 {
                     CalculateDCT(
-                        ref CDU[off + 00], ref CDU[off + 08],
-                        ref CDU[off + 16], ref CDU[off + 24],
-                        ref CDU[off + 32], ref CDU[off + 40],
-                        ref CDU[off + 48], ref CDU[off + 56]);
+                        ref CDU[off + duStride * 0],
+                        ref CDU[off + duStride * 1],
+                        ref CDU[off + duStride * 2],
+                        ref CDU[off + duStride * 3],
+                        ref CDU[off + duStride * 4],
+                        ref CDU[off + duStride * 5],
+                        ref CDU[off + duStride * 6],
+                        ref CDU[off + duStride * 7]);
                 }
 
+                int j = 0;
                 var zigZag = ZigZag;
-                for (int i = 0; i < 64; i++)
+
+                for (int y = 0; y < 8; y++)
                 {
-                    float v = CDU[i] * fdtbl[i];
-                    DU[zigZag[i]] = (int)MathF.Round(v); //(v < 0 ? v - 0.5f : v + 0.5f);
+                    for (int x = 0; x < 8; x++, j++)
+                    {
+                        int i = y * duStride + x;
+                        float v = CDU[i] * fdtbl[j];
+                        DU[zigZag[j]] = (int)MathF.Round(v);
+                    }
                 }
             }
 
             public static void WriteCore(WriteState s, int quality, bool useFloatPixels)
             {
+                if (s == null)
+                    throw new ArgumentNullException(nameof(s));
+
                 int width = s.Width;
                 int height = s.Height;
                 int comp = s.Components;
@@ -241,6 +265,7 @@ namespace StbSharp
                 quality = quality != 0 ? quality : 90;
                 quality = quality < 1 ? 1 : quality > 100 ? 100 : quality;
                 quality = quality < 50 ? 5000 / quality : 200 - quality * 2;
+                bool subsample = quality <= 90;
 
                 var zigZag = ZigZag;
                 for (int i = 0; i < 64; i++)
@@ -274,7 +299,7 @@ namespace StbSharp
                         (byte)((width) & 0xff),
                         3,
                         1,
-                        0x11,
+                        (byte)(subsample ? 0x22 : 0x11),
                         0,
                         2,
                         0x11,
@@ -295,20 +320,20 @@ namespace StbSharp
                     s.Write(UVTable);
                     s.Write(head1);
 
-                    s.Write(std_DcLuminanceNrcodes[1..std_DcChrominanceNrcodes.Length]);
-                    s.Write(std_DcLuminanceValues);
+                    s.Write(DefaultDcLuminanceNrcodes[1..DefaultDcChrominanceNrcodes.Length]);
+                    s.Write(DefaultDcLuminanceValues);
 
                     s.WriteByte(0x10);
-                    s.Write(std_AcLuminanceNrcodes.Slice(1));
-                    s.Write(std_AcLuminanceValues);
+                    s.Write(DefaultAcLuminanceNrcodes.Slice(1));
+                    s.Write(DefaultAcLuminanceValues);
 
                     s.WriteByte(1);
-                    s.Write(std_DcChrominanceNrcodes.Slice(1));
-                    s.Write(std_DcChrominanceValues);
+                    s.Write(DefaultDcChrominanceNrcodes.Slice(1));
+                    s.Write(DefaultDcChrominanceValues);
 
                     s.WriteByte(0x11);
-                    s.Write(std_AcChrominanceNrcodes.Slice(1));
-                    s.Write(std_AcChrominanceValues);
+                    s.Write(DefaultAcChrominanceNrcodes.Slice(1));
+                    s.Write(DefaultAcChrominanceValues);
 
                     s.Write(Head2);
                 }
@@ -320,59 +345,91 @@ namespace StbSharp
                     int stride = width * comp;
                     int ofsG = comp > 2 ? 1 : 0;
                     int ofsB = comp > 2 ? 2 : 0;
+                    int duStride = subsample ? 16 : 8;
+                    int duSize = subsample ? 256 : 64;
 
-                    Span<float> YDU = stackalloc float[64];
-                    Span<float> UDU = stackalloc float[64];
-                    Span<float> VDU = stackalloc float[64];
+                    // TODO: pool buffers
+                    float[]? floatRowBuf = useFloatPixels ? new float[stride] : null;
+                    byte[]? byteRowBuf = !useFloatPixels ? new byte[stride] : null;
+                    Span<float> floatRow = floatRowBuf;
+                    Span<byte> byteRow = byteRowBuf;
 
                     var bitBuf = new BitBuffer32();
-                    Span<int> DU = stackalloc int[64];
+                    Span<float> Y = stackalloc float[duSize];
+                    Span<float> U = stackalloc float[duSize];
+                    Span<float> V = stackalloc float[duSize];
+                    Span<float> subU = stackalloc float[subsample ? 64 : 0];
+                    Span<float> subV = stackalloc float[subsample ? 64 : 0];
 
-                    float[] floatRowBuf = null;
-                    byte[] byteRowBuf = null;
-
-                    if (useFloatPixels)
-                        floatRowBuf = new float[stride];
-                    else
-                        byteRowBuf = new byte[stride];
-
-                    for (int y = 0; y < height; y += 8)
+                    // TODO: optimize
+                    // TODO: split into functions and move some branches outside loops
+                    for (int y = 0; y < height; y += duStride)
                     {
-                        for (int x = 0; x < width; x += 8)
+                        for (int x = 0; x < width; x += duStride)
                         {
-                            for (int row = y, pos = 0; row < (y + 8); row++)
+                            if (useFloatPixels)
                             {
-                                int clamped_row = (row < height) ? row : height - 1;
-
-                                if (useFloatPixels)
+                                for (int row = y, pos = 0; row < (y + duStride); row++)
                                 {
-                                    s.GetFloatRow(clamped_row, floatRowBuf);
-                                    for (int col = x; col < (x + 8); col++, pos++)
+                                    int clamped_row = (row < height) ? row : height - 1;
+                                    s.GetFloatRow(clamped_row, floatRow);
+
+                                    for (int col = x; col < (x + duStride); col++, pos++)
                                     {
                                         int p = ((col < width) ? col : (width - 1)) * comp;
-                                        float r = floatRowBuf[p + 0000];
-                                        float g = floatRowBuf[p + ofsG];
-                                        float b = floatRowBuf[p + ofsB];
-                                        CalculateDU(YDU, UDU, VDU, pos, r, g, b, byte.MaxValue);
+                                        float r = floatRow[p + 0000];
+                                        float g = floatRow[p + ofsG];
+                                        float b = floatRow[p + ofsB];
+                                        CalculateDU(Y, U, V, pos, r, g, b, byte.MaxValue);
                                     }
                                 }
-                                else
+                            }
+                            else
+                            {
+                                for (int row = y, pos = 0; row < (y + duStride); row++)
                                 {
-                                    s.GetByteRow(clamped_row, byteRowBuf);
-                                    for (int col = x; col < (x + 8); col++, pos++)
+                                    int clamped_row = (row < height) ? row : height - 1;
+                                    s.GetByteRow(clamped_row, byteRow);
+
+                                    for (int col = x; col < (x + duStride); col++, pos++)
                                     {
                                         int p = ((col < width) ? col : (width - 1)) * comp;
-                                        float r = byteRowBuf[p + 0000];
-                                        float g = byteRowBuf[p + ofsG];
-                                        float b = byteRowBuf[p + ofsB];
-                                        CalculateDU(YDU, UDU, VDU, pos, r, g, b, 1);
+                                        byte r = byteRow[p + 0000];
+                                        byte g = byteRow[p + ofsG];
+                                        byte b = byteRow[p + ofsB];
+                                        CalculateDU(Y, U, V, pos, r, g, b, 1);
                                     }
                                 }
                             }
 
-                            DCY = ProcessDU(s, ref bitBuf, YDU, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                            DCU = ProcessDU(s, ref bitBuf, UDU, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
-                            DCV = ProcessDU(s, ref bitBuf, VDU, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
+                            if (subsample)
+                            {
+                                DCY = ProcessDU(s, ref bitBuf, Y.Slice(0), 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y.Slice(8), 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y.Slice(128), 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y.Slice(136), 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+
+                                // subsample U,V
+                                {
+                                    for (int yy = 0, pos = 0; yy < 8; yy++)
+                                    {
+                                        for (int xx = 0; xx < 8; xx++, pos++)
+                                        {
+                                            int j = yy * 32 + xx * 2;
+                                            subU[pos] = (U[j + 17] + U[j + 16] + U[j + 1] + U[j + 0]) * 0.25f;
+                                            subV[pos] = (V[j + 17] + V[j + 16] + V[j + 1] + V[j + 0]) * 0.25f;
+                                        }
+                                    }
+                                    DCU = ProcessDU(s, ref bitBuf, subU, 8, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
+                                    DCV = ProcessDU(s, ref bitBuf, subV, 8, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
+                                }
+                            }
+                            else
+                            {
+                                DCY = ProcessDU(s, ref bitBuf, Y, 8, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCU = ProcessDU(s, ref bitBuf, U, 8, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
+                                DCV = ProcessDU(s, ref bitBuf, V, 8, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
+                            }
                         }
                     }
 

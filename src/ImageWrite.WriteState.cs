@@ -12,10 +12,11 @@ namespace StbSharp
         {
             private byte[] _buffer;
             private int _bufferOffset;
+            private bool _isDisposed;
 
             public Stream Stream { get; }
-            public CancellationToken CancellationToken { get; }
             public WriteProgressCallback ProgressCallback { get; }
+            public CancellationToken CancellationToken { get; }
 
             public abstract int Width { get; }
             public abstract int Height { get; }
@@ -27,8 +28,8 @@ namespace StbSharp
             public WriteState(
                 Stream stream,
                 byte[] buffer,
-                CancellationToken cancellationToken,
-                WriteProgressCallback progressCallback)
+                WriteProgressCallback progressCallback,
+                CancellationToken cancellationToken)
             {
                 _buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
                 Stream = stream ?? throw new ArgumentNullException(nameof(stream));
@@ -80,9 +81,20 @@ namespace StbSharp
                     Flush();
             }
 
+            protected virtual void Dispose(bool disposing)
+            {
+                if (!_isDisposed)
+                {
+                    TryFlush();
+
+                    _isDisposed = true;
+                }
+            }
+
             public void Dispose()
             {
-                TryFlush();
+                Dispose(disposing: true);
+                GC.SuppressFinalize(this);
             }
         }
 
@@ -103,10 +115,10 @@ namespace StbSharp
             public WriteState(
                 Stream stream,
                 byte[] buffer,
-                CancellationToken cancellationToken,
                 WriteProgressCallback progressCallback,
-                TPixelRowProvider pixelRowProvider) :
-                base(stream, buffer, cancellationToken, progressCallback)
+                TPixelRowProvider pixelRowProvider,
+                CancellationToken cancellationToken) :
+                base(stream, buffer, progressCallback, cancellationToken)
             {
                 PixelRowProvider = pixelRowProvider;
             }

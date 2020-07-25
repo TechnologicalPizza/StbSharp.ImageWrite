@@ -28,14 +28,15 @@ namespace StbSharp
                 137, 80, 78, 71, 13, 10, 26, 10
             };
 
-            public static int WriteForceFilter = -1;
-
             // TODO: add more color formats and a palette
             // TODO: split IDAT chunk into multiple
             // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
 
-            public static void Write(WriteState s, CompressionLevel level)
+            public static void Write(WriteState s, CompressionLevel level, int? forcedFilter)
             {
+                if (s == null)
+                    throw new ArgumentNullException(nameof(s));
+
                 ZlibHeader.ConvertLevel(level); // acts as a parameter check
 
                 s.CancellationToken.ThrowIfCancellationRequested();
@@ -45,10 +46,6 @@ namespace StbSharp
                 int n = s.Components;
                 int pixelCount = w * h;
                 int stride = w * n;
-
-                int forceFilter = WriteForceFilter;
-                if (forceFilter >= 5)
-                    forceFilter = -1;
 
                 // TODO: remove this (most often huge) alloc
                 //      create a Stream where you Write uncompressed pixel data
@@ -79,10 +76,10 @@ namespace StbSharp
                     s.GetByteRow(y, rowBuffer);
 
                     int filterType = 0;
-                    if (forceFilter > (-1))
+                    if (forcedFilter.HasValue)
                     {
-                        filterType = forceFilter;
-                        EncodeLine(previousRowBuffer, rowBuffer, y, n, forceFilter, lineBuffer);
+                        filterType = forcedFilter.Value;
+                        EncodeLine(previousRowBuffer, rowBuffer, y, n, filterType, lineBuffer);
                     }
                     else
                     {
@@ -95,7 +92,7 @@ namespace StbSharp
 
                             estimate = 0;
                             for (int i = 0; i < lineBuffer.Length; ++i)
-                                estimate += lineBuffer[i];
+                                estimate += lineBuffer[i]; // TODO: vectorize
 
                             if (estimate < bestFilterValue)
                             {
@@ -135,7 +132,7 @@ namespace StbSharp
 
                 // TODO: redesign chunk encoding to write partial chunks instead of one large
 
-                Action<float> weightedProgress = null;
+                Action<float>? weightedProgress = null;
                 if (s.ProgressCallback != null)
                 {
                     var ctx = s;
@@ -238,14 +235,14 @@ namespace StbSharp
                         throw new ArgumentNullException(nameof(type));
                     if (type.Length != 4)
                         throw new ArgumentException(
-                            nameof(type), "The string must be exactly 4 characters long.");
+                            "The string must be exactly 4 characters long.", nameof(type));
 
                     Span<byte> typeBytes = stackalloc byte[sizeof(uint)];
                     for (int i = 0; i < type.Length; i++)
                     {
                         if (type[i] > byte.MaxValue)
                             throw new ArgumentException(
-                                nameof(type), "The character '" + type[i] + "' is invalid.");
+                                "The character '" + type[i] + "' is invalid.", nameof(type));
 
                         typeBytes[i] = (byte)type[i];
                     }

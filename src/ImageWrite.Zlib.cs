@@ -17,13 +17,13 @@ namespace StbSharp
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
                 CancellationToken cancellationToken,
-                Action<float> onProgress = null);
+                Action<float>? onProgress = null);
 
             /// <summary>
             /// Custom zlib deflate (RFC 1951) compression implementation 
             /// that replaces the default <see cref="DeflateCompress"/>.
             /// </summary>
-            public static DeflateCompressDelegate CustomDeflateCompress;
+            public static DeflateCompressDelegate? CustomDeflateCompress;
 
             /// <summary>
             /// Compresses data using a <see cref="DeflateStream"/> and
@@ -34,7 +34,7 @@ namespace StbSharp
                 ReadOnlySpan<byte> data,
                 CompressionLevel level,
                 CancellationToken cancellationToken,
-                Action<float> onProgress = null)
+                Action<float>? onProgress = null)
             {
                 if (CustomDeflateCompress != null)
                     return CustomDeflateCompress.Invoke(data, level, cancellationToken, onProgress);
