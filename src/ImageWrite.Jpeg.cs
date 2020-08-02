@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace StbSharp
 {
@@ -127,7 +128,7 @@ namespace StbSharp
                 Debug.Assert(HTDC != null);
                 Debug.Assert(HTAC != null);
 
-                Span<int> DU = stackalloc int[duStride * 8];
+                Span<int> DU = stackalloc int[64];
                 CalculateCDU(CDU, duStride, fdtbl, DU);
 
                 int diff = DU[0] - DC;
@@ -181,6 +182,7 @@ namespace StbSharp
                 return DU[0];
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static void CalculateDU(
                 Span<float> YDU, Span<float> UDU, Span<float> VDU,
                 int pos, float r, float g, float b, float factor)
@@ -201,30 +203,30 @@ namespace StbSharp
 
             public static void CalculateCDU(Span<float> CDU, int duStride, ReadOnlySpan<float> fdtbl, Span<int> DU)
             {
-                for (int off = 0; off < CDU.Length; off += duStride)
+                for (int i = 0; i < CDU.Length; i += duStride)
                 {
                     CalculateDCT(
-                        ref CDU[off + 0],
-                        ref CDU[off + 1],
-                        ref CDU[off + 2],
-                        ref CDU[off + 3],
-                        ref CDU[off + 4],
-                        ref CDU[off + 5],
-                        ref CDU[off + 6],
-                        ref CDU[off + 7]);
+                        ref CDU[i + 0],
+                        ref CDU[i + 1],
+                        ref CDU[i + 2],
+                        ref CDU[i + 3],
+                        ref CDU[i + 4],
+                        ref CDU[i + 5],
+                        ref CDU[i + 6],
+                        ref CDU[i + 7]);
                 }
 
-                for (int off = 0; off < 8; off++)
+                for (int i = 0; i < 8; i++)
                 {
                     CalculateDCT(
-                        ref CDU[off + duStride * 0],
-                        ref CDU[off + duStride * 1],
-                        ref CDU[off + duStride * 2],
-                        ref CDU[off + duStride * 3],
-                        ref CDU[off + duStride * 4],
-                        ref CDU[off + duStride * 5],
-                        ref CDU[off + duStride * 6],
-                        ref CDU[off + duStride * 7]);
+                        ref CDU[i + duStride * 0],
+                        ref CDU[i + duStride * 1],
+                        ref CDU[i + duStride * 2],
+                        ref CDU[i + duStride * 3],
+                        ref CDU[i + duStride * 4],
+                        ref CDU[i + duStride * 5],
+                        ref CDU[i + duStride * 6],
+                        ref CDU[i + duStride * 7]);
                 }
 
                 int j = 0;
@@ -241,7 +243,10 @@ namespace StbSharp
                 }
             }
 
-            public static void WriteCore(WriteState s, int quality, bool useFloatPixels)
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            public static void WriteCore(
+                WriteState s, 
+                bool useFloatPixels, int quality, bool allowSubsample, bool forceSubsample)
             {
                 if (s == null)
                     throw new ArgumentNullException(nameof(s));
@@ -265,7 +270,7 @@ namespace StbSharp
                 quality = quality != 0 ? quality : 90;
                 quality = quality < 1 ? 1 : quality > 100 ? 100 : quality;
                 quality = quality < 50 ? 5000 / quality : 200 - quality * 2;
-                bool subsample = quality <= 90;
+                bool subsample = forceSubsample || (allowSubsample && quality <= 90);
 
                 var zigZag = ZigZag;
                 for (int i = 0; i < 64; i++)
@@ -347,6 +352,8 @@ namespace StbSharp
                     int ofsB = comp > 2 ? 2 : 0;
                     int duStride = subsample ? 16 : 8;
                     int duSize = subsample ? 256 : 64;
+                    int wEdge = width - 1;
+                    int hEdge = height - 1;
 
                     // TODO: pool buffers
                     float[]? floatRowBuf = useFloatPixels ? new float[stride] : null;
@@ -355,28 +362,36 @@ namespace StbSharp
                     Span<byte> byteRow = byteRowBuf;
 
                     var bitBuf = new BitBuffer32();
-                    Span<float> Y = stackalloc float[duSize];
-                    Span<float> U = stackalloc float[duSize];
-                    Span<float> V = stackalloc float[duSize];
                     Span<float> subU = stackalloc float[subsample ? 64 : 0];
                     Span<float> subV = stackalloc float[subsample ? 64 : 0];
+                    Span<float> U = stackalloc float[duSize];
+                    Span<float> V = stackalloc float[duSize];
+                    Span<float> Y = stackalloc float[duSize];
+                    Span<float> Y1 = subsample ? Y.Slice(0, 128) : default;
+                    Span<float> Y2 = subsample ? Y.Slice(8, 128) : default;
+                    Span<float> Y3 = subsample ? Y.Slice(128, 128) : default;
+                    Span<float> Y4 = subsample ? Y.Slice(136, 120) : default;
 
                     // TODO: optimize
                     // TODO: split into functions and move some branches outside loops
+
                     for (int y = 0; y < height; y += duStride)
                     {
                         for (int x = 0; x < width; x += duStride)
                         {
+                            int rowMax = y + duStride;
+                            int colMax = x + duStride;
+
                             if (useFloatPixels)
                             {
-                                for (int row = y, pos = 0; row < (y + duStride); row++)
+                                for (int row = y, pos = 0; row < rowMax; row++)
                                 {
-                                    int clamped_row = (row < height) ? row : height - 1;
+                                    int clamped_row = (row < height) ? row : hEdge;
                                     s.GetFloatRow(clamped_row, floatRow);
 
-                                    for (int col = x; col < (x + duStride); col++, pos++)
+                                    for (int col = x; col < colMax; col++, pos++)
                                     {
-                                        int p = ((col < width) ? col : (width - 1)) * comp;
+                                        int p = (col < width ? col : wEdge) * comp;
                                         float r = floatRow[p + 0000];
                                         float g = floatRow[p + ofsG];
                                         float b = floatRow[p + ofsB];
@@ -386,14 +401,14 @@ namespace StbSharp
                             }
                             else
                             {
-                                for (int row = y, pos = 0; row < (y + duStride); row++)
+                                for (int row = y, pos = 0; row < rowMax; row++)
                                 {
-                                    int clamped_row = (row < height) ? row : height - 1;
+                                    int clamped_row = (row < height) ? row : hEdge;
                                     s.GetByteRow(clamped_row, byteRow);
 
-                                    for (int col = x; col < (x + duStride); col++, pos++)
+                                    for (int col = x; col < colMax; col++, pos++)
                                     {
-                                        int p = ((col < width) ? col : (width - 1)) * comp;
+                                        int p = (col < width ? col : wEdge) * comp;
                                         byte r = byteRow[p + 0000];
                                         byte g = byteRow[p + ofsG];
                                         byte b = byteRow[p + ofsB];
@@ -404,10 +419,10 @@ namespace StbSharp
 
                             if (subsample)
                             {
-                                DCY = ProcessDU(s, ref bitBuf, Y.Slice(0), 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                                DCY = ProcessDU(s, ref bitBuf, Y.Slice(8), 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                                DCY = ProcessDU(s, ref bitBuf, Y.Slice(128), 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                                DCY = ProcessDU(s, ref bitBuf, Y.Slice(136), 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y1, 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y2, 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y3, 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y4, 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
 
                                 // subsample U,V
                                 {

@@ -8,6 +8,9 @@ namespace StbSharp
     {
         public delegate void WriteProgressCallback(float progress);
 
+        /// <summary>
+        /// Acts as a pixel source and output for encoded data.
+        /// </summary>
         public abstract class WriteState : IDisposable
         {
             private byte[] _buffer;
@@ -98,7 +101,14 @@ namespace StbSharp
             }
         }
 
-        public class WriteState<TPixelRowProvider> : WriteState
+        /// <summary>
+        /// Acts as a wrapper <see cref="WriteState"/> for a <see cref="IPixelRowProvider"/>.
+        /// </summary>
+        /// <remarks>
+        /// The class is sealed to allow for devirtualization of generics.
+        /// </remarks>
+        /// <typeparam name="TPixelRowProvider"></typeparam>
+        public sealed class WriteState<TPixelRowProvider> : WriteState
             where TPixelRowProvider : IPixelRowProvider
         {
             public TPixelRowProvider PixelRowProvider { get; }
