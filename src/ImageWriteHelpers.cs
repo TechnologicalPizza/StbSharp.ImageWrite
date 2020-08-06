@@ -111,11 +111,6 @@ namespace StbSharp
                 }
             }
         }
-        public static void WriteUInt(uint value, Span<byte> destination, ref int position)
-        {
-            BinaryPrimitives.WriteUInt32BigEndian(destination.Slice(position), value);
-            position += sizeof(uint);
-        }
 
         public static int WritePixel(
             bool flipRgb, int alphaDirection, bool expandMono,
