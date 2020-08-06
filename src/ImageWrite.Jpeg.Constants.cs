@@ -71,7 +71,7 @@ namespace StbSharp
 
             #region Point Tables
 
-            public static readonly PointU16[] YDC_HT =
+            public static readonly PointU16[] YDCHT =
             {
                 new PointU16(0, 2),
                 new PointU16(2, 3),
@@ -87,7 +87,7 @@ namespace StbSharp
                 new PointU16(510, 9),
             };
 
-            public static readonly PointU16[] UVDC_HT =
+            public static readonly PointU16[] UVDCHT =
             {
                 new PointU16(0, 2),
                 new PointU16(1, 2),
@@ -103,7 +103,7 @@ namespace StbSharp
                 new PointU16(2046, 11),
             };
 
-            public static readonly PointU16[] YAC_HT =
+            public static readonly PointU16[] YACHT =
             {
                 new PointU16(10, 4),
                 new PointU16(0, 2),
@@ -363,7 +363,7 @@ namespace StbSharp
                 new PointU16(0, 0),
             };
 
-            public static readonly PointU16[] UVAC_HT =
+            public static readonly PointU16[] UVACHT =
             {
                 new PointU16(0, 2),
                 new PointU16(1, 2),

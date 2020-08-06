@@ -50,7 +50,7 @@ namespace StbSharp
             {
                 private ArrayPool<byte> _pool;
                 private byte[] _buffer;
-                public int _bufferPos;
+                private int _bufferPos;
 
                 private uint _crc;
                 private PngChunkType _chunkType;
@@ -371,6 +371,7 @@ namespace StbSharp
                 }
             }
 
+            [CLSCompliant(false)]
             public static uint GetRowEstimate(ReadOnlySpan<byte> row)
             {
                 uint estimate = 0;

@@ -11,9 +11,13 @@ namespace StbSharp
         {
             public readonly struct PointU16
             {
+                [CLSCompliant(false)]
                 public ushort X { get; }
+
+                [CLSCompliant(false)]
                 public ushort Y { get; }
 
+                [CLSCompliant(false)]
                 public PointU16(ushort x, ushort y)
                 {
                     X = x;
@@ -29,10 +33,14 @@ namespace StbSharp
 
             public struct BitBuffer16
             {
+                [CLSCompliant(false)]
                 public ushort Value;
+
+                [CLSCompliant(false)]
                 public ushort Count;
             }
 
+            [CLSCompliant(false)]
             public static void WriteBits(
                 WriteState s, ref BitBuffer32 bitBuf, ushort bs0, ushort bs1)
             {
@@ -419,10 +427,10 @@ namespace StbSharp
 
                             if (subsample)
                             {
-                                DCY = ProcessDU(s, ref bitBuf, Y1, 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                                DCY = ProcessDU(s, ref bitBuf, Y2, 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                                DCY = ProcessDU(s, ref bitBuf, Y3, 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                                DCY = ProcessDU(s, ref bitBuf, Y4, 16, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y1, 16, fdtbl_Y, DCY, YDCHT, YACHT);
+                                DCY = ProcessDU(s, ref bitBuf, Y2, 16, fdtbl_Y, DCY, YDCHT, YACHT);
+                                DCY = ProcessDU(s, ref bitBuf, Y3, 16, fdtbl_Y, DCY, YDCHT, YACHT);
+                                DCY = ProcessDU(s, ref bitBuf, Y4, 16, fdtbl_Y, DCY, YDCHT, YACHT);
 
                                 // subsample U,V
                                 {
@@ -435,15 +443,15 @@ namespace StbSharp
                                             subV[pos] = (V[j + 17] + V[j + 16] + V[j + 1] + V[j + 0]) * 0.25f;
                                         }
                                     }
-                                    DCU = ProcessDU(s, ref bitBuf, subU, 8, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
-                                    DCV = ProcessDU(s, ref bitBuf, subV, 8, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
+                                    DCU = ProcessDU(s, ref bitBuf, subU, 8, fdtbl_UV, DCU, UVDCHT, UVACHT);
+                                    DCV = ProcessDU(s, ref bitBuf, subV, 8, fdtbl_UV, DCV, UVDCHT, UVACHT);
                                 }
                             }
                             else
                             {
-                                DCY = ProcessDU(s, ref bitBuf, Y, 8, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-                                DCU = ProcessDU(s, ref bitBuf, U, 8, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
-                                DCV = ProcessDU(s, ref bitBuf, V, 8, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
+                                DCY = ProcessDU(s, ref bitBuf, Y, 8, fdtbl_Y, DCY, YDCHT, YACHT);
+                                DCU = ProcessDU(s, ref bitBuf, U, 8, fdtbl_UV, DCU, UVDCHT, UVACHT);
+                                DCV = ProcessDU(s, ref bitBuf, V, 8, fdtbl_UV, DCV, UVDCHT, UVACHT);
                             }
                         }
                     }

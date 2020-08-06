@@ -18,6 +18,11 @@ namespace StbSharp
         public static void WriteFormat(
             this WriteState s, string format, ReadOnlySpan<long> values)
         {
+            if (s == null)
+                throw new ArgumentNullException(nameof(s));
+            if (format == null)
+                throw new ArgumentNullException(nameof(format));
+
             Span<byte> buffer = stackalloc byte[sizeof(long)];
 
             int valueIndex = 0;
@@ -49,6 +54,8 @@ namespace StbSharp
             bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int pad,
             string format, ReadOnlySpan<long> values)
         {
+            if (s == null)
+                throw new ArgumentNullException(nameof(s));
             if (s.Width <= 0 || s.Height <= 0)
                 throw new ArgumentException("Invalid image dimensions.", nameof(s));
 
@@ -60,6 +67,8 @@ namespace StbSharp
             this WriteState s,
             bool flipRgb, int verticalDirection, int alphaDirection, int scanlinePad, bool expandMono)
         {
+            if (s == null)
+                throw new ArgumentNullException(nameof(s));
             if (scanlinePad < 0 || scanlinePad > 4)
                 throw new ArgumentOutOfRangeException(nameof(scanlinePad));
 

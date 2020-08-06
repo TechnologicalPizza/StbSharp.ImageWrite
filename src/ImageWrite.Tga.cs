@@ -8,6 +8,9 @@ namespace StbSharp
         {
             public static void Write(WriteState s, bool useRLE)
             {
+                if (s == null)
+                    throw new ArgumentNullException(nameof(s));
+
                 int width = s.Width;
                 int height = s.Height;
                 int comp = s.Components;

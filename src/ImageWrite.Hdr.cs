@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 
 namespace StbSharp
@@ -21,8 +22,9 @@ namespace StbSharp
                 if (height <= 0 || width <= 0)
                     throw new ArgumentException("Invalid image dimensions.", nameof(s));
 
-                byte[] Head1 = Encoding.UTF8.GetBytes(string.Format(
-                    "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", height.ToString(), width.ToString()));
+                var cult = CultureInfo.InvariantCulture;
+                byte[] Head1 = Encoding.UTF8.GetBytes(string.Format(cult,
+                    "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", height.ToString(cult), width.ToString(cult)));
 
                 s.Write(Head0.Span);
                 s.Write(Head1);

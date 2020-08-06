@@ -11,6 +11,9 @@ namespace StbSharp
                 // we only support RGB and RGBA, no palette indexing
                 // TODO: support for palette indexing
 
+                if (s == null)
+                    throw new ArgumentNullException(nameof(s));
+
                 int bytesPerPixel = s.Components == 4 ? 4 : 3;
                 int bitDepth = bytesPerPixel * 8;
 
