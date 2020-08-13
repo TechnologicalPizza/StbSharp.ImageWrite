@@ -6,7 +6,7 @@ namespace StbSharp
 {
     public static partial class ImageWrite
     {
-        public delegate void WriteProgressCallback(float progress);
+        public delegate void WriteProgressCallback(float progress, Rect? rectangle);
 
         /// <summary>
         /// Acts as a pixel source and output for encoded data.
@@ -18,7 +18,7 @@ namespace StbSharp
             private bool _isDisposed;
 
             public Stream Stream { get; }
-            public WriteProgressCallback ProgressCallback { get; }
+            public WriteProgressCallback? ProgressCallback { get; }
             public CancellationToken CancellationToken { get; }
 
             public abstract int Width { get; }
@@ -31,7 +31,7 @@ namespace StbSharp
             public WriteState(
                 Stream stream,
                 byte[] buffer,
-                WriteProgressCallback progressCallback,
+                WriteProgressCallback? progressCallback,
                 CancellationToken cancellationToken)
             {
                 _buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
@@ -43,11 +43,6 @@ namespace StbSharp
             public abstract void GetByteRow(int row, Span<byte> destination);
 
             public abstract void GetFloatRow(int row, Span<float> destination);
-
-            public void ReportProgress(float percentage)
-            {
-                ProgressCallback?.Invoke(percentage);
-            }
 
             public void Write(ReadOnlySpan<byte> buffer)
             {
@@ -125,8 +120,8 @@ namespace StbSharp
             public WriteState(
                 Stream stream,
                 byte[] buffer,
-                WriteProgressCallback progressCallback,
                 TPixelRowProvider pixelRowProvider,
+                WriteProgressCallback? progressCallback,
                 CancellationToken cancellationToken) :
                 base(stream, buffer, progressCallback, cancellationToken)
             {

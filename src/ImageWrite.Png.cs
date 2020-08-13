@@ -272,14 +272,10 @@ namespace StbSharp
 
                     #region IDAT
 
-                    Action<float>? weightedProgress = null;
+                    WriteProgressCallback? weightedProgress = null;
                     if (s.ProgressCallback != null)
-                    {
-                        var ctx = s;
-                        weightedProgress = (p) => ctx.ReportProgress(p * 0.49f + 0.5f);
-                    }
-
-
+                        weightedProgress = (p, r) => s.ProgressCallback.Invoke(p * 0.49f + 0.5f, r);
+                    
                     var previousRowArray = pool.Rent(stride);
                     var currentRowArray = pool.Rent(stride);
                     var resultArray = pool.Rent(1 + stride);
@@ -337,20 +333,20 @@ namespace StbSharp
                                 fullResultRow[0] = (byte)filterType;
                                 compressor.Write(fullResultRow);
 
-                                cancellation.ThrowIfCancellationRequested();
-
                                 // Swap buffers. 
                                 var nextRow = previousRow;
                                 previousRow = currentRow;
                                 currentRow = nextRow;
 
+
                                 // TODO: tidy this up a notch so it's easier to reuse in other implementations
-                                if (s.ProgressCallback != null)
+                                var progress = s.ProgressCallback;
+                                if (progress != null)
                                 {
                                     progressStep += w;
                                     while (progressStep >= progressStepSize)
                                     {
-                                        s.ReportProgress(y / (float)h * 0.5f);
+                                        progress.Invoke(y / (float)h * 0.5f, null);
                                         progressStep -= progressStepSize;
                                     }
                                 }
