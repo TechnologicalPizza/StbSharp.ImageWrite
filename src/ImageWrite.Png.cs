@@ -447,7 +447,7 @@ namespace StbSharp
                     case 1:
                         if (Vector.IsHardwareAccelerated)
                         {
-                            for (; i + Vector<byte>.Count < output.Length; i += Vector<byte>.Count)
+                            for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                             {
                                 var v_ncurrent = new Vector<byte>(current.Slice(i - n));
                                 var v_current = new Vector<byte>(current.Slice(i));
@@ -463,7 +463,7 @@ namespace StbSharp
                     case 2:
                         if (Vector.IsHardwareAccelerated)
                         {
-                            for (; i + Vector<byte>.Count < output.Length; i += Vector<byte>.Count)
+                            for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                             {
                                 var v_current = new Vector<byte>(current.Slice(i));
                                 var v_previous = new Vector<byte>(previous.Slice(i));
@@ -484,7 +484,7 @@ namespace StbSharp
                             fixed (byte* previousPtr = previous)
                             fixed (byte* outputPtr = output)
                             {
-                                for (; i + Vector128<byte>.Count < output.Length; i += Vector128<byte>.Count)
+                                for (; i + Vector128<byte>.Count <= output.Length; i += Vector128<byte>.Count)
                                 {
                                     var v_ncurrent = Sse2.LoadVector128(currentPtr + i - n);
                                     var v_current = Sse2.LoadVector128(currentPtr + i);
@@ -508,7 +508,7 @@ namespace StbSharp
                     case 4:
                         if (Vector.IsHardwareAccelerated)
                         {
-                            for (; i + Vector<byte>.Count < output.Length; i += Vector<byte>.Count)
+                            for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                             {
                                 var v_ncurrent = new Vector<byte>(current.Slice(i - n));
                                 var v_current = new Vector<byte>(current.Slice(i));
@@ -520,8 +520,10 @@ namespace StbSharp
                             }
                         }
                         for (; i < output.Length; i++)
+                        {
                             output[i] = (byte)(
                                 current[i] - MathHelper.Paeth(current[i - n], previous[i], previous[i - n]));
+                        }
                         break;
 
                     case 5:
@@ -531,7 +533,7 @@ namespace StbSharp
                             fixed (byte* currentPtr = current)
                             fixed (byte* outputPtr = output)
                             {
-                                for (; i + Vector128<byte>.Count < output.Length; i += Vector128<byte>.Count)
+                                for (; i + Vector128<byte>.Count <= output.Length; i += Vector128<byte>.Count)
                                 {
                                     var v_ncurrent = Sse2.LoadVector128(currentPtr + i - n);
                                     var v_current = Sse2.LoadVector128(currentPtr + i);
@@ -554,7 +556,7 @@ namespace StbSharp
                     case 6:
                         if (Vector.IsHardwareAccelerated)
                         {
-                            for (; i + Vector<byte>.Count < output.Length; i += Vector<byte>.Count)
+                            for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                             {
                                 var v_ncurrent = new Vector<byte>(current.Slice(i - n));
                                 var v_current = new Vector<byte>(current.Slice(i));
