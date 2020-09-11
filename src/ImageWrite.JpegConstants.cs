@@ -1,35 +1,49 @@
 using System;
 
-namespace StbSharp
+namespace StbSharp.ImageWrite
 {
-    public static partial class ImageWrite
+    public static class JpegConstants
     {
-        public static partial class Jpeg
+        public readonly struct PointU16
         {
-            public static ReadOnlySpan<byte> ZigZag => new byte[]
+            [CLSCompliant(false)]
+            public ushort X { get; }
+
+            [CLSCompliant(false)]
+            public ushort Y { get; }
+
+            [CLSCompliant(false)]
+            public PointU16(ushort x, ushort y)
             {
+                X = x;
+                Y = y;
+            }
+        }
+
+        public static ReadOnlySpan<byte> ZigZag => new byte[]
+        {
                 0, 1, 5, 6, 14, 15, 27, 28, 2, 4, 7, 13, 16, 26, 29, 42, 3, 8, 12, 17, 25, 30, 41,
                 43, 9, 11, 18, 24, 31, 40, 44, 53, 10, 19, 23, 32, 39, 45, 52, 54, 20, 22, 33, 38,
                 46, 51, 55, 60, 21, 34, 37, 47, 50, 56, 59, 61, 35, 36, 48, 49, 57, 58, 62, 63
-            };
+        };
 
-            public static ReadOnlySpan<byte> DefaultDcLuminanceNrcodes => new byte[]
-            {
+        public static ReadOnlySpan<byte> DefaultDcLuminanceNrcodes => new byte[]
+        {
                 0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0
-            };
+        };
 
-            public static ReadOnlySpan<byte> DefaultDcLuminanceValues => new byte[]
-            {
+        public static ReadOnlySpan<byte> DefaultDcLuminanceValues => new byte[]
+        {
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
-            };
+        };
 
-            public static ReadOnlySpan<byte> DefaultAcLuminanceNrcodes => new byte[]
-            {
+        public static ReadOnlySpan<byte> DefaultAcLuminanceNrcodes => new byte[]
+        {
                 0, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d
-            };
+        };
 
-            public static ReadOnlySpan<byte> DefaultAcLuminanceValues => new byte[]
-            {
+        public static ReadOnlySpan<byte> DefaultAcLuminanceValues => new byte[]
+        {
                 0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07, 0x22, 0x71,
                 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42, 0xb1, 0xc1, 0x15, 0x52, 0xd1, 0xf0, 0x24, 0x33, 0x62, 0x72,
                 0x82, 0x09, 0x0a, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x34, 0x35, 0x36, 0x37,
@@ -39,25 +53,25 @@ namespace StbSharp
                 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xc2, 0xc3,
                 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xe1, 0xe2,
                 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa
-            };
+        };
 
-            public static ReadOnlySpan<byte> DefaultDcChrominanceNrcodes => new byte[]
-            {
+        public static ReadOnlySpan<byte> DefaultDcChrominanceNrcodes => new byte[]
+        {
                 0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0
-            };
+        };
 
-            public static ReadOnlySpan<byte> DefaultDcChrominanceValues => new byte[]
-            {
+        public static ReadOnlySpan<byte> DefaultDcChrominanceValues => new byte[]
+        {
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
-            };
+        };
 
-            public static ReadOnlySpan<byte> DefaultAcChrominanceNrcodes => new byte[]
-            {
+        public static ReadOnlySpan<byte> DefaultAcChrominanceNrcodes => new byte[]
+        {
                 0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77
-            };
+        };
 
-            public static ReadOnlySpan<byte> DefaultAcChrominanceValues => new byte[]
-            {
+        public static ReadOnlySpan<byte> DefaultAcChrominanceValues => new byte[]
+        {
                 0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21, 0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71, 0x13, 0x22,
                 0x32, 0x81, 0x08, 0x14, 0x42, 0x91, 0xa1, 0xb1, 0xc1, 0x09, 0x23, 0x33, 0x52, 0xf0, 0x15, 0x62, 0x72, 0xd1,
                 0x0a, 0x16, 0x24, 0x34, 0xe1, 0x25, 0xf1, 0x17, 0x18, 0x19, 0x1a, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x35, 0x36,
@@ -67,12 +81,12 @@ namespace StbSharp
                 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba,
                 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda,
                 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa
-            };
+        };
 
-            #region Point Tables
+        #region Point Tables
 
-            public static readonly PointU16[] YDCHT =
-            {
+        public static readonly PointU16[] YDCHT =
+        {
                 new PointU16(0, 2),
                 new PointU16(2, 3),
                 new PointU16(3, 3),
@@ -87,8 +101,8 @@ namespace StbSharp
                 new PointU16(510, 9),
             };
 
-            public static readonly PointU16[] UVDCHT =
-            {
+        public static readonly PointU16[] UVDCHT =
+        {
                 new PointU16(0, 2),
                 new PointU16(1, 2),
                 new PointU16(2, 2),
@@ -103,8 +117,8 @@ namespace StbSharp
                 new PointU16(2046, 11),
             };
 
-            public static readonly PointU16[] YACHT =
-            {
+        public static readonly PointU16[] YACHT =
+        {
                 new PointU16(10, 4),
                 new PointU16(0, 2),
                 new PointU16(1, 2),
@@ -363,8 +377,8 @@ namespace StbSharp
                 new PointU16(0, 0),
             };
 
-            public static readonly PointU16[] UVACHT =
-            {
+        public static readonly PointU16[] UVACHT =
+        {
                 new PointU16(0, 2),
                 new PointU16(1, 2),
                 new PointU16(4, 3),
@@ -623,24 +637,24 @@ namespace StbSharp
                 new PointU16(0, 0),
             };
 
-            #endregion
+        #endregion
 
-            public static ReadOnlySpan<byte> YQT => new byte[]
-            {
+        public static ReadOnlySpan<byte> YQT => new byte[]
+        {
                 16, 11, 10, 16, 24, 40, 51, 61, 12, 12, 14, 19, 26, 58, 60, 55, 14, 13, 16, 24, 40, 57,
                 69, 56, 14, 17, 22, 29, 51, 87, 80, 62, 18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64,
                 81, 104, 113, 92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92, 95, 98, 112, 100, 103, 99
-            };
+        };
 
-            public static ReadOnlySpan<byte> UVQT => new byte[]
-            {
+        public static ReadOnlySpan<byte> UVQT => new byte[]
+        {
                 17, 18, 24, 47, 99, 99, 99, 99, 18, 21, 26, 66, 99, 99, 99, 99, 24, 26, 56, 99, 99, 99, 99,
                 99, 47, 66, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
                 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99
-            };
+        };
 
-            public static readonly float[] aasf =
-            {
+        public static readonly float[] aasf =
+        {
                 1.000000000f * 2.828427125f,
                 1.387039845f * 2.828427125f,
                 1.306562965f * 2.828427125f,
@@ -651,17 +665,16 @@ namespace StbSharp
                 0.275899379f * 2.828427125f
             };
 
-            public static ReadOnlySpan<byte> Head0 => new byte[]
-            {
+        public static ReadOnlySpan<byte> Head0 => new byte[]
+        {
                 0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10,
                 (byte)'J', (byte)'F', (byte)'I', (byte)'F',
                 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xFF, 0xDB, 0, 0x84, 0
-            };
+        };
 
-            public static ReadOnlySpan<byte> Head2 => new byte[]
-            {
+        public static ReadOnlySpan<byte> Head2 => new byte[]
+        {
                 0xFF, 0xDA, 0, 0xC, 3, 1, 0, 2, 0x11, 3, 0x11, 0, 0x3F, 0
-            };
-        }
+        };
     }
 }

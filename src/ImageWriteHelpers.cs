@@ -1,9 +1,7 @@
 using System;
-using System.Buffers.Binary;
 using System.Globalization;
-using static StbSharp.ImageWrite;
 
-namespace StbSharp
+namespace StbSharp.ImageWrite
 {
     public static class ImageWriteHelpers
     {
@@ -16,17 +14,15 @@ namespace StbSharp
         /// </para>
         /// </summary>
         public static void WriteFormat(
-            this WriteState s, string format, ReadOnlySpan<long> values)
+            this WriteState s, ReadOnlySpan<char> format, ReadOnlySpan<long> values)
         {
             if (s == null)
                 throw new ArgumentNullException(nameof(s));
-            if (format == null)
-                throw new ArgumentNullException(nameof(format));
 
             Span<byte> buffer = stackalloc byte[sizeof(long)];
 
             int valueIndex = 0;
-            for (int i = 0; i < format.Length; ++i)
+            for (int i = 0; i < format.Length; i++)
             {
                 int digit = CharUnicodeInfo.GetDecimalDigitValue(format[i]);
                 if (digit == -1 || digit > buffer.Length)
@@ -52,7 +48,7 @@ namespace StbSharp
         public static void OutFile(
             this WriteState s,
             bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int pad,
-            string format, ReadOnlySpan<long> values)
+            ReadOnlySpan<char> format, ReadOnlySpan<long> values)
         {
             if (s == null)
                 throw new ArgumentNullException(nameof(s));
@@ -92,7 +88,7 @@ namespace StbSharp
             int comp = s.Components;
             int stride = width * comp;
 
-            var scanline = new byte[stride];
+            var scanline = stride <= 4096 ? stackalloc byte[stride] : new byte[stride];
             Span<byte> scanlinePadSpan = stackalloc byte[scanlinePad];
             scanlinePadSpan.Clear();
 
@@ -101,17 +97,17 @@ namespace StbSharp
                 s.GetByteRow(row, scanline);
 
                 int offset = 0;
-                for (int i = 0; i < width; ++i)
+                for (int i = 0; i < width; i++)
                 {
                     offset += WritePixel(
                         flipRgb, alphaDirection, expandMono,
-                        scanline.AsSpan(i * comp, comp),
-                        scanline.AsSpan(offset, comp));
+                        scanline.Slice(i * comp, comp),
+                        scanline.Slice(offset, comp));
                 }
 
                 if (offset != stride)
                 {
-                    s.Write(scanline.AsSpan(0, offset));
+                    s.Write(scanline.Slice(0, offset));
                     s.Write(scanlinePadSpan);
                 }
                 else
