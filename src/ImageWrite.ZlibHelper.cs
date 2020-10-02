@@ -34,7 +34,7 @@ namespace StbSharp.ImageWrite
     public class ZlibStream : Stream
     {
         private DeflateStream _deflater;
-		private bool _leaveOpen;
+        private bool _leaveOpen;
         private uint _adlerChecksum;
 
         public override bool CanRead => false;
@@ -48,8 +48,8 @@ namespace StbSharp.ImageWrite
             get => throw new NotSupportedException();
             set => throw new NotSupportedException();
         }
-		
-		public Stream BaseStream => _deflater.BaseStream;
+        
+        public Stream BaseStream => _deflater.BaseStream;
 
         public ZlibStream(Stream stream, CompressionLevel compressionLevel, bool leaveOpen)
         {
@@ -100,11 +100,11 @@ namespace StbSharp.ImageWrite
 
         protected override void Dispose(bool disposing)
         {
-            if (_deflate != null)
+            if (_deflater != null)
             {
                 var baseStream = BaseStream;
-                _deflate.Dispose();
-                _deflate = null!;
+                _deflater.Dispose();
+                _deflater = null!;
 
                 Span<byte> checksumBytes = stackalloc byte[sizeof(uint)];
                 BinaryPrimitives.WriteUInt32BigEndian(checksumBytes, _adlerChecksum);
