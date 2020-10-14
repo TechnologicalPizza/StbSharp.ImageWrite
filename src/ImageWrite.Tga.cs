@@ -22,7 +22,7 @@ namespace StbSharp.ImageWrite
 
             if (!useRLE)
             {
-                Span<long> headers = stackalloc long[]
+                Span<long> headerValues = stackalloc long[]
                 {
                     0,
                     0,
@@ -39,11 +39,11 @@ namespace StbSharp.ImageWrite
                 };
 
                 ImageWriteHelpers.OutFile(
-                    s, true, -1, false, hasAlpha, 0, "111 221 2222 11", headers);
+                    s, true, -1, false, hasAlpha, 0, "111 221 2222 11", headerValues);
             }
             else
             {
-                Span<long> headers = stackalloc long[]
+                Span<long> headerValues = stackalloc long[]
                 {
                     0,
                     0,
@@ -58,7 +58,7 @@ namespace StbSharp.ImageWrite
                     (colorbytes + hasAlpha) * 8,
                     hasAlpha * 8
                 };
-                ImageWriteHelpers.WriteFormat(s, "111 221 2222 11", headers);
+                ImageWriteHelpers.WriteFormat(s, "111 221 2222 11", headerValues);
 
                 var rowScratch = new byte[width * comp].AsSpan();
                 Span<byte> outBuffer = stackalloc byte[4];
