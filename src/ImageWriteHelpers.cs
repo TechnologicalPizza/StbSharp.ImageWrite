@@ -47,7 +47,7 @@ namespace StbSharp.ImageWrite
         /// </summary>
         public static void OutFile(
             this WriteState s,
-            bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int pad,
+            bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int scanlinePad,
             ReadOnlySpan<char> format, ReadOnlySpan<long> values)
         {
             if (s == null)
@@ -56,7 +56,7 @@ namespace StbSharp.ImageWrite
                 throw new ArgumentException("Invalid image dimensions.", nameof(s));
 
             WriteFormat(s, format, values);
-            WritePixels(s, flipRgb, verticalDirection, alphaDirection, pad, expandMono);
+            WritePixels(s, flipRgb, verticalDirection, alphaDirection, scanlinePad, expandMono);
         }
 
         public static void WritePixels(
@@ -87,33 +87,30 @@ namespace StbSharp.ImageWrite
             int width = s.Width;
             int comp = s.Components;
             int stride = width * comp;
+            int scanlineMax = stride + scanlinePad;
 
-            var scanline = stride <= 4096 ? stackalloc byte[stride] : new byte[stride];
-            Span<byte> scanlinePadSpan = stackalloc byte[scanlinePad];
-            scanlinePadSpan.Clear();
+            Span<byte> scanline = scanlineMax <= 4100 ? stackalloc byte[scanlineMax] : new byte[scanlineMax];
 
             for (; row != rowEnd; row += verticalDirection)
             {
                 s.GetByteRow(row, scanline);
 
                 int offset = 0;
-                for (int i = 0; i < width; i++)
+                for (int x = 0; x < width; x++)
                 {
                     offset += WritePixel(
                         flipRgb, alphaDirection, expandMono,
-                        scanline.Slice(i * comp, comp),
+                        scanline.Slice(x * comp, comp),
                         scanline.Slice(offset, comp));
                 }
 
                 if (offset != stride)
                 {
-                    s.Write(scanline.Slice(0, offset));
-                    s.Write(scanlinePadSpan);
+                    var padSlice = scanline.Slice(offset, scanlinePad);
+                    padSlice.Clear(); // clear possible garbage from last row
+                    offset += scanlinePad;
                 }
-                else
-                {
-                    s.Write(scanline);
-                }
+                s.Write(scanline.Slice(0, offset));
             }
         }
 
