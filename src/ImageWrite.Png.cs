@@ -108,7 +108,7 @@ namespace StbSharp.ImageWrite
                         buffer.Slice(0, toCopy).CopyTo(_buffer.AsSpan(_bufferPos));
 
                         _bufferPos += toCopy;
-                        buffer = buffer.Slice(toCopy);
+                        buffer = buffer[toCopy..];
 
                     } while (!buffer.IsEmpty);
                 }
@@ -177,8 +177,8 @@ namespace StbSharp.ImageWrite
             private void WriteHeader(int length)
             {
                 Span<byte> header = stackalloc byte[8];
-                BinaryPrimitives.WriteUInt32BigEndian(header.Slice(0), (uint)length);
-                BinaryPrimitives.WriteUInt32BigEndian(header.Slice(4), (uint)_chunkType);
+                BinaryPrimitives.WriteUInt32BigEndian(header[..], (uint)length);
+                BinaryPrimitives.WriteUInt32BigEndian(header[4..], (uint)_chunkType);
                 BaseStream.Write(header);
             }
 
@@ -252,10 +252,10 @@ namespace StbSharp.ImageWrite
                     Span<byte> dst = hdr;
 
                     BinaryPrimitives.WriteUInt32BigEndian(dst, (uint)w); // width
-                    dst = dst.Slice(sizeof(uint));
+                    dst = dst[sizeof(uint)..];
 
                     BinaryPrimitives.WriteUInt32BigEndian(dst, (uint)h); // height
-                    dst = dst.Slice(sizeof(uint));
+                    dst = dst[sizeof(uint)..];
 
                     dst[0] = 8; // bit depth
                     dst[1] = ColorTypeMap[n]; // color type
@@ -281,7 +281,7 @@ namespace StbSharp.ImageWrite
                     var previousRow = previousRowArray.AsSpan(0, stride);
                     var currentRow = currentRowArray.AsSpan(0, stride);
                     var fullResultRow = resultArray.AsSpan(0, 1 + stride);
-                    var resultRow = fullResultRow.Slice(1);
+                    var resultRow = fullResultRow[1..];
 
                     encoder.Begin(PngChunkType.IDAT, null);
                     using (var compressor = ZlibHelper.CreateCompressor(encoder, compressionLevel, leaveOpen: true))
@@ -387,7 +387,7 @@ namespace StbSharp.ImageWrite
                     estimateSum += intLow;
                     estimateSum += intHigh;
 
-                    row = row.Slice(Vector<byte>.Count);
+                    row = row[Vector<byte>.Count..];
                 }
 
                 for (int i = 0; i < Vector<int>.Count; i++)
@@ -446,11 +446,11 @@ namespace StbSharp.ImageWrite
                     {
                         for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                         {
-                            var v_ncurrent = new Vector<byte>(current.Slice(i - n));
-                            var v_current = new Vector<byte>(current.Slice(i));
+                            var v_ncurrent = new Vector<byte>(current[(i - n)..]);
+                            var v_current = new Vector<byte>(current[i..]);
 
                             var result = v_current - v_ncurrent;
-                            result.CopyTo(output.Slice(i));
+                            result.CopyTo(output[i..]);
                         }
                     }
                     for (; i < output.Length; i++)
@@ -462,11 +462,11 @@ namespace StbSharp.ImageWrite
                     {
                         for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                         {
-                            var v_current = new Vector<byte>(current.Slice(i));
-                            var v_previous = new Vector<byte>(previous.Slice(i));
+                            var v_current = new Vector<byte>(current[i..]);
+                            var v_previous = new Vector<byte>(previous[i..]);
 
                             var result = v_current - v_previous;
-                            result.CopyTo(output.Slice(i));
+                            result.CopyTo(output[i..]);
                         }
                     }
                     for (; i < output.Length; i++)
@@ -507,13 +507,13 @@ namespace StbSharp.ImageWrite
                     {
                         for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                         {
-                            var v_ncurrent = new Vector<byte>(current.Slice(i - n));
-                            var v_current = new Vector<byte>(current.Slice(i));
-                            var v_nprevious = new Vector<byte>(previous.Slice(i - n));
-                            var v_previous = new Vector<byte>(previous.Slice(i));
+                            var v_ncurrent = new Vector<byte>(current[(i - n)..]);
+                            var v_current = new Vector<byte>(current[i..]);
+                            var v_nprevious = new Vector<byte>(previous[(i - n)..]);
+                            var v_previous = new Vector<byte>(previous[i..]);
 
                             var result = v_current - MathHelper.Paeth(v_ncurrent, v_previous, v_nprevious);
-                            result.CopyTo(output.Slice(i));
+                            result.CopyTo(output[i..]);
                         }
                     }
                     for (; i < output.Length; i++)
@@ -555,11 +555,11 @@ namespace StbSharp.ImageWrite
                     {
                         for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                         {
-                            var v_ncurrent = new Vector<byte>(current.Slice(i - n));
-                            var v_current = new Vector<byte>(current.Slice(i));
+                            var v_ncurrent = new Vector<byte>(current[(i - n)..]);
+                            var v_current = new Vector<byte>(current[i..]);
 
                             var result = v_current - MathHelper.Paeth(v_ncurrent, Vector<byte>.Zero, Vector<byte>.Zero);
-                            result.CopyTo(output.Slice(i));
+                            result.CopyTo(output[i..]);
                         }
                     }
                     for (; i < output.Length; i++)

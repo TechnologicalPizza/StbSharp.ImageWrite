@@ -321,15 +321,15 @@ namespace StbSharp.ImageWrite
                 s.Write(DefaultDcLuminanceValues);
 
                 s.WriteByte(0x10);
-                s.Write(DefaultAcLuminanceNrcodes.Slice(1));
+                s.Write(DefaultAcLuminanceNrcodes[1..]);
                 s.Write(DefaultAcLuminanceValues);
 
                 s.WriteByte(1);
-                s.Write(DefaultDcChrominanceNrcodes.Slice(1));
+                s.Write(DefaultDcChrominanceNrcodes[1..]);
                 s.Write(DefaultDcChrominanceValues);
 
                 s.WriteByte(0x11);
-                s.Write(DefaultAcChrominanceNrcodes.Slice(1));
+                s.Write(DefaultAcChrominanceNrcodes[1..]);
                 s.Write(DefaultAcChrominanceValues);
 
                 s.Write(Head2);
