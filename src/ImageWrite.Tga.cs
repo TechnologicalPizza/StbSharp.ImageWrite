@@ -1,20 +1,27 @@
 using System;
+using System.Runtime.CompilerServices;
 
 namespace StbSharp.ImageWrite
 {
+    [SkipLocalsInit]
     public static class Tga
     {
-        public static void Write(WriteState s, bool useRLE)
+        public static void Write<TImage>(WriteState state, TImage image, bool useRLE)
+            where TImage : IPixelRowProvider
         {
-            if (s == null)
-                throw new ArgumentNullException(nameof(s));
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (image == null)
+                throw new ArgumentNullException(nameof(image));
 
-            int width = s.Width;
-            int height = s.Height;
-            int comp = s.Components;
+            int width = image.Width;
+            int height = image.Height;
+            int comp = image.Components;
 
             if ((height < 0) || (width < 0))
-                throw new ArgumentException("Invalid image dimensions.", nameof(s));
+                throw new ArgumentException("Invalid image dimensions.", nameof(state));
+
+            state.ThrowIfCancelled();
 
             int hasAlpha = (comp == 2 || comp == 4) ? 1 : 0;
             int colorbytes = hasAlpha != 0 ? comp - 1 : comp;
@@ -39,7 +46,7 @@ namespace StbSharp.ImageWrite
                 };
 
                 ImageWriteHelpers.OutFile(
-                    s, true, -1, false, hasAlpha, 0, "111 221 2222 11", headerValues);
+                    state, image, true, -1, false, hasAlpha, 0, "111 221 2222 11", headerValues);
             }
             else
             {
@@ -58,14 +65,15 @@ namespace StbSharp.ImageWrite
                     (colorbytes + hasAlpha) * 8,
                     hasAlpha * 8
                 };
-                ImageWriteHelpers.WriteFormat(s, "111 221 2222 11", headerValues);
+                ImageWriteHelpers.WriteFormat(state, "111 221 2222 11", headerValues);
 
                 var rowScratch = new byte[width * comp].AsSpan();
                 Span<byte> outBuffer = stackalloc byte[4];
 
                 for (int y = height; y-- > 0;)
                 {
-                    s.GetByteRow(y, rowScratch);
+                    state.ThrowIfCancelled();
+                    image.GetByteRow(y, rowScratch);
 
                     int len;
                     for (int x = 0; x < width; x += len)
@@ -114,7 +122,7 @@ namespace StbSharp.ImageWrite
 
                         if (!diff)
                         {
-                            s.WriteByte((byte)((len - 1) & 0xff));
+                            state.WriteByte((byte)((len - 1) & 0xff));
 
                             for (int k = 0; k < len; k++)
                             {
@@ -122,18 +130,18 @@ namespace StbSharp.ImageWrite
                                 int count = ImageWriteHelpers.WritePixel(
                                     true, hasAlpha, false, pixel, outBuffer);
 
-                                s.Write(outBuffer.Slice(0, count));
+                                state.Write(outBuffer.Slice(0, count));
                             }
                         }
                         else
                         {
-                            s.WriteByte((byte)((len - 129) & 0xff));
+                            state.WriteByte((byte)((len - 129) & 0xff));
 
                             var pixel = begin.Slice(0, comp);
                             int count = ImageWriteHelpers.WritePixel(
                                 true, hasAlpha, false, pixel, outBuffer);
 
-                            s.Write(outBuffer.Slice(0, count));
+                            state.Write(outBuffer.Slice(0, count));
                         }
                     }
                 }

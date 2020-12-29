@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.IO;
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
 
 namespace StbSharp.ImageWrite
 {
@@ -31,6 +32,7 @@ namespace StbSharp.ImageWrite
         }
     }
 
+    [SkipLocalsInit]
     public class ZlibStream : Stream
     {
         private DeflateStream _deflater;

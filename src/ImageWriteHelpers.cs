@@ -1,8 +1,10 @@
 using System;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace StbSharp.ImageWrite
 {
+    [SkipLocalsInit]
     public static class ImageWriteHelpers
     {
         /// <summary>
@@ -45,30 +47,38 @@ namespace StbSharp.ImageWrite
         /// <summary>
         /// Used for writing raw data with headers.
         /// </summary>
-        public static void OutFile(
-            this WriteState s,
+        public static void OutFile<TImage>(
+            this WriteState state, TImage image,
             bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int scanlinePad,
             ReadOnlySpan<char> format, ReadOnlySpan<long> values)
+            where TImage : IPixelRowProvider
         {
-            if (s == null)
-                throw new ArgumentNullException(nameof(s));
-            if (s.Width <= 0 || s.Height <= 0)
-                throw new ArgumentException("Invalid image dimensions.", nameof(s));
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (image == null)
+                throw new ArgumentNullException(nameof(image));
 
-            WriteFormat(s, format, values);
-            WritePixels(s, flipRgb, verticalDirection, alphaDirection, scanlinePad, expandMono);
+            if (image.Width <= 0 || image.Height <= 0)
+                throw new ArgumentException("Invalid image dimensions.", nameof(state));
+
+            WriteFormat(state, format, values);
+            WritePixels(state, image, flipRgb, verticalDirection, alphaDirection, scanlinePad, expandMono);
         }
 
-        public static void WritePixels(
-            this WriteState s,
+        public static void WritePixels<TImage>(
+            this WriteState state, TImage image,
             bool flipRgb, int verticalDirection, int alphaDirection, int scanlinePad, bool expandMono)
+            where TImage : IPixelRowProvider
         {
-            if (s == null)
-                throw new ArgumentNullException(nameof(s));
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (image == null)
+                throw new ArgumentNullException(nameof(image));
+
             if (scanlinePad < 0 || scanlinePad > 4)
                 throw new ArgumentOutOfRangeException(nameof(scanlinePad));
 
-            if (s.Width <= 0 || s.Height <= 0)
+            if (image.Width <= 0 || image.Height <= 0)
                 return;
 
             int row;
@@ -76,24 +86,24 @@ namespace StbSharp.ImageWrite
             if (verticalDirection < 0)
             {
                 rowEnd = -1;
-                row = s.Height - 1;
+                row = image.Height - 1;
             }
             else
             {
-                rowEnd = s.Height;
+                rowEnd = image.Height;
                 row = 0;
             }
 
-            int width = s.Width;
-            int comp = s.Components;
+            int width = image.Width;
+            int comp = image.Components;
             int stride = width * comp;
             int scanlineMax = stride + scanlinePad;
 
-            Span<byte> scanline = scanlineMax <= 4100 ? stackalloc byte[scanlineMax] : new byte[scanlineMax];
+            Span<byte> scanline = scanlineMax <= 4096 ? stackalloc byte[scanlineMax] : new byte[scanlineMax];
 
             for (; row != rowEnd; row += verticalDirection)
             {
-                s.GetByteRow(row, scanline);
+                image.GetByteRow(row, scanline);
 
                 int offset = 0;
                 for (int x = 0; x < width; x++)
@@ -110,7 +120,7 @@ namespace StbSharp.ImageWrite
                     padSlice.Clear(); // clear possible garbage from last row
                     offset += scanlinePad;
                 }
-                s.Write(scanline.Slice(0, offset));
+                state.Write(scanline.Slice(0, offset));
             }
         }
 

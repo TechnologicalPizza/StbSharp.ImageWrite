@@ -10,6 +10,7 @@ using System.Runtime.Intrinsics.X86;
 
 namespace StbSharp.ImageWrite
 {
+    [SkipLocalsInit]
     public static class Png
     {
         public enum FilterType : byte
@@ -110,7 +111,8 @@ namespace StbSharp.ImageWrite
                         _bufferPos += toCopy;
                         buffer = buffer[toCopy..];
 
-                    } while (!buffer.IsEmpty);
+                    }
+                    while (!buffer.IsEmpty);
                 }
             }
 
@@ -218,20 +220,24 @@ namespace StbSharp.ImageWrite
         // TODO: add more color formats and a palette
         // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
 
-        public static void Write(
-            WriteState s, CompressionLevel compressionLevel, int? forcedFilter, ArrayPool<byte>? pool)
+        public static void Write<TImage>(
+            WriteState state, TImage image,
+            CompressionLevel compressionLevel, int? forcedFilter, ArrayPool<byte>? pool)
+            where TImage : IPixelRowProvider
         {
-            if (s == null)
-                throw new ArgumentNullException(nameof(s));
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (image == null)
+                throw new ArgumentNullException(nameof(image));
 
             ZlibHeader.ConvertLevel(compressionLevel); // acts as a parameter check
+            state.ThrowIfCancelled();
 
             pool ??= ArrayPool<byte>.Shared;
 
-            var cancellation = s.CancellationToken;
-            int w = s.Width;
-            int h = s.Height;
-            int n = s.Components;
+            int w = image.Width;
+            int h = image.Height;
+            int n = image.Components;
             int pixelCount = w * h;
             int stride = w * n;
 
@@ -239,10 +245,7 @@ namespace StbSharp.ImageWrite
             double progressStepCount = pixelCount / (1000 * Math.Log(pixelCount, 2));
             double progressStepSize = Math.Max(1, pixelCount / progressStepCount);
 
-            cancellation.ThrowIfCancellationRequested();
-
-            // TODO: use ArrayPool
-            using (var encoder = new ChunkStream(s.Stream, pool))
+            using (var encoder = new ChunkStream(state.Stream, pool))
             {
                 encoder.Write(Signature);
 
@@ -270,8 +273,8 @@ namespace StbSharp.ImageWrite
                 #region IDAT
 
                 WriteProgressCallback? weightedProgress = null;
-                if (s.ProgressCallback != null)
-                    weightedProgress = (p, r) => s.ProgressCallback.Invoke(p * 0.49f + 0.5f, r);
+                if (state.ProgressCallback != null)
+                    weightedProgress = (p, r) => state.ProgressCallback.Invoke(p * 0.49f + 0.5f, r);
 
                 var previousRowArray = pool.Rent(stride);
                 var currentRowArray = pool.Rent(stride);
@@ -288,9 +291,8 @@ namespace StbSharp.ImageWrite
                     {
                         for (int y = 0; y < h; y++)
                         {
-                            cancellation.ThrowIfCancellationRequested();
-
-                            s.GetByteRow(y, currentRow);
+                            state.ThrowIfCancelled();
+                            image.GetByteRow(y, currentRow);
 
                             var filterMap = (y != 0) ? FilterMapping : FirstFilterMapping;
                             int filterType;
@@ -315,7 +317,7 @@ namespace StbSharp.ImageWrite
                                         bestFilter = filterType;
                                     }
 
-                                    cancellation.ThrowIfCancellationRequested();
+                                    state.ThrowIfCancelled();
                                 }
 
                                 if (filterType != bestFilter)
@@ -325,7 +327,7 @@ namespace StbSharp.ImageWrite
                                 }
                             }
 
-                            cancellation.ThrowIfCancellationRequested();
+                            state.ThrowIfCancelled();
 
                             fullResultRow[0] = (byte)filterType;
                             compressor.Write(fullResultRow);
@@ -335,9 +337,8 @@ namespace StbSharp.ImageWrite
                             previousRow = currentRow;
                             currentRow = nextRow;
 
-
-                            // TODO: tidy this up a notch so it's easier to reuse in other implementations
-                            var progress = s.ProgressCallback;
+                            // TODO: tidy progress up a notch so it's easier to reuse in other implementations
+                            var progress = state.ProgressCallback;
                             if (progress != null)
                             {
                                 progressStep += w;

@@ -7,6 +7,7 @@ namespace StbSharp.ImageWrite
 {
     using static JpegConstants;
 
+    [SkipLocalsInit]
     public static class Jpeg
     {
         public struct BitBuffer32
@@ -236,22 +237,26 @@ namespace StbSharp.ImageWrite
         }
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        public static void WriteCore(
-            WriteState s,
+        public static void WriteCore<TImage>(
+            WriteState state, TImage image,
             bool useFloatPixels, int quality, bool allowSubsample, bool forceSubsample)
+            where TImage : IPixelRowProvider
         {
-            if (s == null)
-                throw new ArgumentNullException(nameof(s));
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (image == null)
+                throw new ArgumentNullException(nameof(image));
 
-            int width = s.Width;
-            int height = s.Height;
-            int comp = s.Components;
+            int width = image.Width;
+            int height = image.Height;
+            int comp = image.Components;
 
             if (width == 0 || (height == 0))
-                throw new ArgumentException("Invalid dimensions.", nameof(s));
-
+                throw new ArgumentException("Invalid dimensions.", nameof(image));
             if ((comp < 1) || (comp > 4))
-                throw new ArgumentException("Invalid component count.", nameof(s));
+                throw new ArgumentException("Invalid component count.", nameof(image));
+
+            state.ThrowIfCancelled();
 
             Span<float> fdtbl_Y = stackalloc float[64];
             Span<float> fdtbl_UV = stackalloc float[64];
@@ -311,28 +316,28 @@ namespace StbSharp.ImageWrite
                     0
                 };
 
-                s.Write(Head0);
-                s.Write(YTable);
-                s.WriteByte(1);
-                s.Write(UVTable);
-                s.Write(head1);
+                state.Write(Head0);
+                state.Write(YTable);
+                state.WriteByte(1);
+                state.Write(UVTable);
+                state.Write(head1);
 
-                s.Write(DefaultDcLuminanceNrcodes[1..DefaultDcChrominanceNrcodes.Length]);
-                s.Write(DefaultDcLuminanceValues);
+                state.Write(DefaultDcLuminanceNrcodes[1..DefaultDcChrominanceNrcodes.Length]);
+                state.Write(DefaultDcLuminanceValues);
 
-                s.WriteByte(0x10);
-                s.Write(DefaultAcLuminanceNrcodes[1..]);
-                s.Write(DefaultAcLuminanceValues);
+                state.WriteByte(0x10);
+                state.Write(DefaultAcLuminanceNrcodes[1..]);
+                state.Write(DefaultAcLuminanceValues);
 
-                s.WriteByte(1);
-                s.Write(DefaultDcChrominanceNrcodes[1..]);
-                s.Write(DefaultDcChrominanceValues);
+                state.WriteByte(1);
+                state.Write(DefaultDcChrominanceNrcodes[1..]);
+                state.Write(DefaultDcChrominanceValues);
 
-                s.WriteByte(0x11);
-                s.Write(DefaultAcChrominanceNrcodes[1..]);
-                s.Write(DefaultAcChrominanceValues);
+                state.WriteByte(0x11);
+                state.Write(DefaultAcChrominanceNrcodes[1..]);
+                state.Write(DefaultAcChrominanceValues);
 
-                s.Write(Head2);
+                state.Write(Head2);
             }
 
             {
@@ -378,8 +383,10 @@ namespace StbSharp.ImageWrite
                         {
                             for (int row = y, pos = 0; row < rowMax; row++)
                             {
+                                state.ThrowIfCancelled();
+
                                 int clamped_row = (row < height) ? row : hEdge;
-                                s.GetFloatRow(clamped_row, floatRow);
+                                image.GetFloatRow(clamped_row, floatRow);
 
                                 for (int col = x; col < colMax; col++, pos++)
                                 {
@@ -395,8 +402,10 @@ namespace StbSharp.ImageWrite
                         {
                             for (int row = y, pos = 0; row < rowMax; row++)
                             {
+                                state.ThrowIfCancelled();
+
                                 int clamped_row = (row < height) ? row : hEdge;
-                                s.GetByteRow(clamped_row, byteRow);
+                                image.GetByteRow(clamped_row, byteRow);
 
                                 for (int col = x; col < colMax; col++, pos++)
                                 {
@@ -411,40 +420,38 @@ namespace StbSharp.ImageWrite
 
                         if (subsample)
                         {
-                            DCY = ProcessDU(s, ref bitBuf, Y1, 16, fdtbl_Y, DCY, YDCHT, YACHT);
-                            DCY = ProcessDU(s, ref bitBuf, Y2, 16, fdtbl_Y, DCY, YDCHT, YACHT);
-                            DCY = ProcessDU(s, ref bitBuf, Y3, 16, fdtbl_Y, DCY, YDCHT, YACHT);
-                            DCY = ProcessDU(s, ref bitBuf, Y4, 16, fdtbl_Y, DCY, YDCHT, YACHT);
+                            DCY = ProcessDU(state, ref bitBuf, Y1, 16, fdtbl_Y, DCY, YDCHT, YACHT);
+                            DCY = ProcessDU(state, ref bitBuf, Y2, 16, fdtbl_Y, DCY, YDCHT, YACHT);
+                            DCY = ProcessDU(state, ref bitBuf, Y3, 16, fdtbl_Y, DCY, YDCHT, YACHT);
+                            DCY = ProcessDU(state, ref bitBuf, Y4, 16, fdtbl_Y, DCY, YDCHT, YACHT);
 
                             // subsample U,V
+                            for (int yy = 0, pos = 0; yy < 8; yy++)
                             {
-                                for (int yy = 0, pos = 0; yy < 8; yy++)
+                                for (int xx = 0; xx < 8; xx++, pos++)
                                 {
-                                    for (int xx = 0; xx < 8; xx++, pos++)
-                                    {
-                                        int j = yy * 32 + xx * 2;
-                                        subU[pos] = (U[j + 17] + U[j + 16] + U[j + 1] + U[j + 0]) * 0.25f;
-                                        subV[pos] = (V[j + 17] + V[j + 16] + V[j + 1] + V[j + 0]) * 0.25f;
-                                    }
+                                    int j = yy * 32 + xx * 2;
+                                    subU[pos] = (U[j + 17] + U[j + 16] + U[j + 1] + U[j + 0]) * 0.25f;
+                                    subV[pos] = (V[j + 17] + V[j + 16] + V[j + 1] + V[j + 0]) * 0.25f;
                                 }
-                                DCU = ProcessDU(s, ref bitBuf, subU, 8, fdtbl_UV, DCU, UVDCHT, UVACHT);
-                                DCV = ProcessDU(s, ref bitBuf, subV, 8, fdtbl_UV, DCV, UVDCHT, UVACHT);
                             }
+                            DCU = ProcessDU(state, ref bitBuf, subU, 8, fdtbl_UV, DCU, UVDCHT, UVACHT);
+                            DCV = ProcessDU(state, ref bitBuf, subV, 8, fdtbl_UV, DCV, UVDCHT, UVACHT);
                         }
                         else
                         {
-                            DCY = ProcessDU(s, ref bitBuf, Y, 8, fdtbl_Y, DCY, YDCHT, YACHT);
-                            DCU = ProcessDU(s, ref bitBuf, U, 8, fdtbl_UV, DCU, UVDCHT, UVACHT);
-                            DCV = ProcessDU(s, ref bitBuf, V, 8, fdtbl_UV, DCV, UVDCHT, UVACHT);
+                            DCY = ProcessDU(state, ref bitBuf, Y, 8, fdtbl_Y, DCY, YDCHT, YACHT);
+                            DCU = ProcessDU(state, ref bitBuf, U, 8, fdtbl_UV, DCU, UVDCHT, UVACHT);
+                            DCV = ProcessDU(state, ref bitBuf, V, 8, fdtbl_UV, DCV, UVDCHT, UVACHT);
                         }
                     }
                 }
 
-                WriteBits(s, ref bitBuf, 0x7F, 7);
+                WriteBits(state, ref bitBuf, 0x7F, 7);
             }
 
-            s.WriteByte(0xFF);
-            s.WriteByte(0xD9);
+            state.WriteByte(0xFF);
+            state.WriteByte(0xD9);
         }
     }
 }

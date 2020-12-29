@@ -4,26 +4,32 @@ namespace StbSharp.ImageWrite
 {
     public static class Bmp
     {
-        public static void Write(WriteState state)
+        public static void Write<TImage>(WriteState state, TImage image)
+            where TImage : IPixelRowProvider
         {
             // we only support RGB and RGBA, no palette indexing
+
             // TODO: support for palette indexing
 
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
+            if (image == null)
+                throw new ArgumentNullException(nameof(image));
 
-            int bytesPerPixel = state.Components == 4 ? 4 : 3;
+            state.ThrowIfCancelled();
+
+            int bytesPerPixel = image.Components == 4 ? 4 : 3;
             int bitDepth = bytesPerPixel * 8;
 
-            int pad = (-state.Width * bytesPerPixel) & bytesPerPixel;
-            int compressionHeaders = state.Components == 4 ? 17 : 0;
+            int pad = (-image.Width * bytesPerPixel) & bytesPerPixel;
+            int compressionHeaders = image.Components == 4 ? 17 : 0;
             int extraPad = compressionHeaders * sizeof(int); // extra bytes for compression headers
-            int dataSize = (state.Width * bytesPerPixel + pad) * state.Height;
+            int dataSize = (image.Width * bytesPerPixel + pad) * image.Height;
 
             int dibHeaderLen = 40 + extraPad;
             int fileSize = 14 + dibHeaderLen + dataSize;
             int dataOffset = 14 + dibHeaderLen;
-            int compression = state.Components == 4 ? 3 : 0; // 3 == bitfields | 0 == no compression
+            int compression = image.Components == 4 ? 3 : 0; // 3 == bitfields | 0 == no compression
 
             Span<long> header = stackalloc long[]
             {
@@ -37,8 +43,8 @@ namespace StbSharp.ImageWrite
 
                 // DIB header:
                 dibHeaderLen,
-                state.Width,
-                state.Height,
+                image.Width,
+                image.Height,
                 1,
                 bitDepth,
                 compression,
@@ -68,14 +74,14 @@ namespace StbSharp.ImageWrite
                 0 // RGB gamma (unused)
             };
 
-            int alphaDir = state.Components == 4 ? 1 : 0;
+            int alphaDir = image.Components == 4 ? 1 : 0;
             string format =
                 "11 4 22 44 44 22 444444 " + // base header
                 "4444 4 444444444 444"; // compression header
 
             int headerCount = 17 + compressionHeaders;
             ImageWriteHelpers.OutFile(
-                state, true, -1, true, alphaDir, pad, format, header.Slice(0, headerCount));
+                state, image, true, -1, true, alphaDir, pad, format, header.Slice(0, headerCount));
         }
     }
 }

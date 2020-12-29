@@ -1,31 +1,34 @@
 using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace StbSharp.ImageWrite
 {
+    [SkipLocalsInit]
     public static class Hdr
     {
         public static ReadOnlyMemory<byte> Head0 { get; } =
             Encoding.UTF8.GetBytes("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n");
 
-        public static void Write(WriteState s)
+        public static void Write<TPixelRowProvider>(WriteState state, TPixelRowProvider image)
+            where TPixelRowProvider : IPixelRowProvider
         {
-            if (s == null)
-                throw new ArgumentNullException(nameof(s));
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
 
-            int width = s.Width;
-            int height = s.Height;
+            int width = image.Width;
+            int height = image.Height;
             if (height <= 0 || width <= 0)
-                throw new ArgumentException("Invalid image dimensions.", nameof(s));
+                throw new ArgumentException("Invalid image dimensions.", nameof(state));
 
             var cult = CultureInfo.InvariantCulture;
             byte[] Head1 = Encoding.UTF8.GetBytes(string.Format(cult,
                 "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", height.ToString(cult), width.ToString(cult)));
 
-            s.Write(Head0.Span);
-            s.Write(Head1);
+            state.Write(Head0.Span);
+            state.Write(Head1);
 
             // TODO: pool buffers
 
@@ -37,35 +40,30 @@ namespace StbSharp.ImageWrite
 
             for (int row = 0; row < height; row++)
             {
-                s.GetFloatRow(row, rowBuffer);
-                WriteHdrScanline(s, rowBuffer, scratch);
+                state.ThrowIfCancelled();
+                image.GetFloatRow(row, rowBuffer);
+                WriteHdrScanline(state, image, rowBuffer, scratch);
             }
         }
 
-        public static void WriteRunData(WriteState s, int length, byte databyte)
+        private static void WriteRunData(WriteState s, int length, byte databyte)
         {
-            Debug.Assert(s != null);
-
             s.WriteByte((byte)((length + 128) & 0xff)); // lengthbyte
             s.WriteByte(databyte);
         }
 
-        public static void WriteDumpData(WriteState s, ReadOnlySpan<byte> data)
+        private static void WriteDumpData(WriteState s, ReadOnlySpan<byte> data)
         {
-            Debug.Assert(s != null);
-
             s.WriteByte((byte)((data.Length) & 0xff)); // lengthbyte
             s.Write(data);
         }
 
-        public static void WriteHdrScanline(
-            WriteState s, float[] data, byte[]? buffer)
+        private static void WriteHdrScanline<TPixelRowProvider>(
+            WriteState state, TPixelRowProvider image, float[] data, byte[]? buffer)
+            where TPixelRowProvider : IPixelRowProvider
         {
-            Debug.Assert(s != null);
-            Debug.Assert(data != null);
-
-            int width = s.Width;
-            int n = s.Components;
+            int width = image.Width;
+            int n = image.Components;
 
             Span<byte> scanlineHeader = stackalloc byte[4] {
                 2,
@@ -100,7 +98,7 @@ namespace StbSharp.ImageWrite
                     buffer[x + width * 0] = rgbe[0];
                 }
 
-                s.Write(scanlineHeader);
+                state.Write(scanlineHeader);
 
                 for (int c = 0; c < 4; c++)
                 {
@@ -127,7 +125,7 @@ namespace StbSharp.ImageWrite
                             if (len > 128)
                                 len = 128;
 
-                            WriteDumpData(s, buffer.AsSpan(o + x, len));
+                            WriteDumpData(state, buffer.AsSpan(o + x, len));
                             x += len;
                         }
 
@@ -142,7 +140,7 @@ namespace StbSharp.ImageWrite
                                 if (len > 127)
                                     len = 127;
 
-                                WriteRunData(s, len, buffer[o + x]);
+                                WriteRunData(state, len, buffer[o + x]);
                                 x += len;
                             }
                         }
@@ -159,7 +157,7 @@ namespace StbSharp.ImageWrite
                     linear[0] = src[x + ofsR];
                     LinearToRgbe(linear, rgbe);
 
-                    s.Write(rgbe);
+                    state.Write(rgbe);
                 }
             }
         }
