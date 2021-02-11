@@ -27,7 +27,7 @@ namespace StbSharp.ImageWrite
 
         [CLSCompliant(false)]
         public static void WriteBits(
-            WriteState s, ref BitBuffer32 bitBuf, ushort bs0, ushort bs1)
+            ImageBinWriter s, ref BitBuffer32 bitBuf, ushort bs0, ushort bs1)
         {
             Debug.Assert(s != null);
 
@@ -47,7 +47,7 @@ namespace StbSharp.ImageWrite
         }
 
         public static void WriteBits(
-            WriteState s, ref BitBuffer32 bitBuf, PointU16 point)
+            ImageBinWriter s, ref BitBuffer32 bitBuf, PointU16 point)
         {
             WriteBits(s, ref bitBuf, point.X, point.Y);
         }
@@ -114,7 +114,7 @@ namespace StbSharp.ImageWrite
         }
 
         public static int ProcessDU(
-            WriteState s, ref BitBuffer32 bitBuf,
+            ImageBinWriter s, ref BitBuffer32 bitBuf,
             Span<float> CDU, int duStride, Span<float> fdtbl, int DC,
             PointU16[] HTDC, PointU16[] HTAC)
         {
@@ -238,7 +238,7 @@ namespace StbSharp.ImageWrite
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public static void WriteCore<TImage>(
-            WriteState state, TImage image,
+            ImageBinWriter state, TImage image,
             bool useFloatPixels, int quality, bool allowSubsample, bool forceSubsample)
             where TImage : IPixelRowProvider
         {
@@ -256,7 +256,7 @@ namespace StbSharp.ImageWrite
             if ((comp < 1) || (comp > 4))
                 throw new ArgumentException("Invalid component count.", nameof(image));
 
-            state.ThrowIfCancelled();
+            image.ThrowIfCancelled();
 
             Span<float> fdtbl_Y = stackalloc float[64];
             Span<float> fdtbl_UV = stackalloc float[64];
@@ -383,8 +383,6 @@ namespace StbSharp.ImageWrite
                         {
                             for (int row = y, pos = 0; row < rowMax; row++)
                             {
-                                state.ThrowIfCancelled();
-
                                 int clamped_row = (row < height) ? row : hEdge;
                                 image.GetFloatRow(clamped_row, floatRow);
 
@@ -402,8 +400,6 @@ namespace StbSharp.ImageWrite
                         {
                             for (int row = y, pos = 0; row < rowMax; row++)
                             {
-                                state.ThrowIfCancelled();
-
                                 int clamped_row = (row < height) ? row : hEdge;
                                 image.GetByteRow(clamped_row, byteRow);
 

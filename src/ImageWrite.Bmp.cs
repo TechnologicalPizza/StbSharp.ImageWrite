@@ -4,7 +4,7 @@ namespace StbSharp.ImageWrite
 {
     public static class Bmp
     {
-        public static void Write<TImage>(WriteState state, TImage image)
+        public static void Write<TImage>(ImageBinWriter state, TImage image)
             where TImage : IPixelRowProvider
         {
             // we only support RGB and RGBA, no palette indexing
@@ -16,7 +16,7 @@ namespace StbSharp.ImageWrite
             if (image == null)
                 throw new ArgumentNullException(nameof(image));
 
-            state.ThrowIfCancelled();
+            image.ThrowIfCancelled();
 
             int bytesPerPixel = image.Components == 4 ? 4 : 3;
             int bitDepth = bytesPerPixel * 8;

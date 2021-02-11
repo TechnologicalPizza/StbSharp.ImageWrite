@@ -26,22 +26,22 @@ namespace StbSharp.ImageWrite
 
         public static ReadOnlySpan<byte> FilterMapping => new byte[]
         {
-                0, 1, 2, 3, 4
+            0, 1, 2, 3, 4
         };
 
         public static ReadOnlySpan<byte> FirstFilterMapping => new byte[]
         {
-                0, 1, 0, 5, 6
+            0, 1, 0, 5, 6
         };
 
         public static ReadOnlySpan<byte> ColorTypeMap => new byte[]
         {
-                255, 0, 4, 2, 6
+            255, 0, 4, 2, 6
         };
 
         public static ReadOnlySpan<byte> Signature => new byte[]
         {
-                137, 80, 78, 71, 13, 10, 26, 10
+            137, 80, 78, 71, 13, 10, 26, 10
         };
 
         public class ChunkStream : Stream
@@ -202,17 +202,19 @@ namespace StbSharp.ImageWrite
 
             protected override void Dispose(bool disposing)
             {
-                if (_inChunk)
-                    End();
-
-                if (_buffer != null)
+                if (disposing)
                 {
-                    _pool.Return(_buffer);
-                    _buffer = null!;
+                    if (_inChunk)
+                        End();
+
+                    if (_buffer != null)
+                    {
+                        _pool.Return(_buffer);
+                        _buffer = null!;
+                    }
+
+                    BaseStream = null!;
                 }
-
-                BaseStream = null!;
-
                 base.Dispose(disposing);
             }
         }
@@ -221,8 +223,12 @@ namespace StbSharp.ImageWrite
         // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
 
         public static void Write<TImage>(
-            WriteState state, TImage image,
-            CompressionLevel compressionLevel, int? forcedFilter, ArrayPool<byte>? pool)
+            ImageBinWriter state,
+            TImage image,
+            CompressionLevel compressionLevel,
+            int? forcedFilter = null,
+            ZlibHelper.DeflateCompressorFactory? deflateCompressorFactory = null,
+            ArrayPool<byte>? pool = null)
             where TImage : IPixelRowProvider
         {
             if (state == null)
@@ -231,7 +237,7 @@ namespace StbSharp.ImageWrite
                 throw new ArgumentNullException(nameof(image));
 
             ZlibHeader.ConvertLevel(compressionLevel); // acts as a parameter check
-            state.ThrowIfCancelled();
+            image.ThrowIfCancelled();
 
             pool ??= ArrayPool<byte>.Shared;
 
@@ -240,10 +246,7 @@ namespace StbSharp.ImageWrite
             int n = image.Components;
             int pixelCount = w * h;
             int stride = w * n;
-
-            double progressStep = 0;
-            double progressStepCount = pixelCount / (1000 * Math.Log(pixelCount, 2));
-            double progressStepSize = Math.Max(1, pixelCount / progressStepCount);
+            double dHeight = h;
 
             using (var encoder = new ChunkStream(state.Stream, pool))
             {
@@ -272,10 +275,6 @@ namespace StbSharp.ImageWrite
 
                 #region IDAT
 
-                WriteProgressCallback? weightedProgress = null;
-                if (state.ProgressCallback != null)
-                    weightedProgress = (p, r) => state.ProgressCallback.Invoke(p * 0.49f + 0.5f, r);
-
                 var previousRowArray = pool.Rent(stride);
                 var currentRowArray = pool.Rent(stride);
                 var resultArray = pool.Rent(1 + stride);
@@ -287,11 +286,11 @@ namespace StbSharp.ImageWrite
                     var resultRow = fullResultRow[1..];
 
                     encoder.Begin(PngChunkType.IDAT, null);
-                    using (var compressor = ZlibHelper.CreateCompressor(encoder, compressionLevel, leaveOpen: true))
+                    using (var compressor = ZlibHelper.CreateCompressor(
+                        encoder, leaveOpen: true, compressionLevel, deflateCompressorFactory))
                     {
                         for (int y = 0; y < h; y++)
                         {
-                            state.ThrowIfCancelled();
                             image.GetByteRow(y, currentRow);
 
                             var filterMap = (y != 0) ? FilterMapping : FirstFilterMapping;
@@ -317,7 +316,7 @@ namespace StbSharp.ImageWrite
                                         bestFilter = filterType;
                                     }
 
-                                    state.ThrowIfCancelled();
+                                    image.ThrowIfCancelled();
                                 }
 
                                 if (filterType != bestFilter)
@@ -327,7 +326,7 @@ namespace StbSharp.ImageWrite
                                 }
                             }
 
-                            state.ThrowIfCancelled();
+                            image.ThrowIfCancelled();
 
                             fullResultRow[0] = (byte)filterType;
                             compressor.Write(fullResultRow);
@@ -338,16 +337,8 @@ namespace StbSharp.ImageWrite
                             currentRow = nextRow;
 
                             // TODO: tidy progress up a notch so it's easier to reuse in other implementations
-                            var progress = state.ProgressCallback;
-                            if (progress != null)
-                            {
-                                progressStep += w;
-                                while (progressStep >= progressStepSize)
-                                {
-                                    progress.Invoke(y / (float)h * 0.5f, null);
-                                    progressStep -= progressStepSize;
-                                }
-                            }
+                            if (state.HasProgressListener)
+                                state.ReportProgress(y / dHeight, null);
                         }
                     }
                     encoder.End();
@@ -391,7 +382,7 @@ namespace StbSharp.ImageWrite
                     row = row[Vector<byte>.Count..];
                 }
 
-                for (int i = 0; i < Vector<int>.Count; i++)
+                for (int i = 0; i < Vector<uint>.Count; i++)
                     estimate += estimateSum[i];
             }
 

@@ -12,11 +12,13 @@ namespace StbSharp.ImageWrite
         public static ReadOnlyMemory<byte> Head0 { get; } =
             Encoding.UTF8.GetBytes("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n");
 
-        public static void Write<TPixelRowProvider>(WriteState state, TPixelRowProvider image)
+        public static void Write<TPixelRowProvider>(ImageBinWriter state, TPixelRowProvider image)
             where TPixelRowProvider : IPixelRowProvider
         {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
+
+            image.ThrowIfCancelled();
 
             int width = image.Width;
             int height = image.Height;
@@ -40,26 +42,26 @@ namespace StbSharp.ImageWrite
 
             for (int row = 0; row < height; row++)
             {
-                state.ThrowIfCancelled();
+                image.ThrowIfCancelled();
                 image.GetFloatRow(row, rowBuffer);
                 WriteHdrScanline(state, image, rowBuffer, scratch);
             }
         }
 
-        private static void WriteRunData(WriteState s, int length, byte databyte)
+        private static void WriteRunData(ImageBinWriter s, int length, byte databyte)
         {
             s.WriteByte((byte)((length + 128) & 0xff)); // lengthbyte
             s.WriteByte(databyte);
         }
 
-        private static void WriteDumpData(WriteState s, ReadOnlySpan<byte> data)
+        private static void WriteDumpData(ImageBinWriter s, ReadOnlySpan<byte> data)
         {
             s.WriteByte((byte)((data.Length) & 0xff)); // lengthbyte
             s.Write(data);
         }
 
         private static void WriteHdrScanline<TPixelRowProvider>(
-            WriteState state, TPixelRowProvider image, float[] data, byte[]? buffer)
+            ImageBinWriter state, TPixelRowProvider image, float[] data, byte[]? buffer)
             where TPixelRowProvider : IPixelRowProvider
         {
             int width = image.Width;

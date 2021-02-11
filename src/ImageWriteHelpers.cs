@@ -16,7 +16,7 @@ namespace StbSharp.ImageWrite
         /// </para>
         /// </summary>
         public static void WriteFormat(
-            this WriteState s, ReadOnlySpan<char> format, ReadOnlySpan<long> values)
+            this ImageBinWriter s, ReadOnlySpan<char> format, ReadOnlySpan<long> values)
         {
             if (s == null)
                 throw new ArgumentNullException(nameof(s));
@@ -48,7 +48,7 @@ namespace StbSharp.ImageWrite
         /// Used for writing raw data with headers.
         /// </summary>
         public static void OutFile<TImage>(
-            this WriteState state, TImage image,
+            this ImageBinWriter state, TImage image,
             bool flipRgb, int verticalDirection, bool expandMono, int alphaDirection, int scanlinePad,
             ReadOnlySpan<char> format, ReadOnlySpan<long> values)
             where TImage : IPixelRowProvider
@@ -66,7 +66,7 @@ namespace StbSharp.ImageWrite
         }
 
         public static void WritePixels<TImage>(
-            this WriteState state, TImage image,
+            this ImageBinWriter state, TImage image,
             bool flipRgb, int verticalDirection, int alphaDirection, int scanlinePad, bool expandMono)
             where TImage : IPixelRowProvider
         {

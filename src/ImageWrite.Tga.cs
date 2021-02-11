@@ -6,7 +6,7 @@ namespace StbSharp.ImageWrite
     [SkipLocalsInit]
     public static class Tga
     {
-        public static void Write<TImage>(WriteState state, TImage image, bool useRLE)
+        public static void Write<TImage>(ImageBinWriter state, TImage image, bool useRLE)
             where TImage : IPixelRowProvider
         {
             if (state == null)
@@ -21,7 +21,7 @@ namespace StbSharp.ImageWrite
             if ((height < 0) || (width < 0))
                 throw new ArgumentException("Invalid image dimensions.", nameof(state));
 
-            state.ThrowIfCancelled();
+            image.ThrowIfCancelled();
 
             int hasAlpha = (comp == 2 || comp == 4) ? 1 : 0;
             int colorbytes = hasAlpha != 0 ? comp - 1 : comp;
@@ -72,7 +72,6 @@ namespace StbSharp.ImageWrite
 
                 for (int y = height; y-- > 0;)
                 {
-                    state.ThrowIfCancelled();
                     image.GetByteRow(y, rowScratch);
 
                     int len;

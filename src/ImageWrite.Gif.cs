@@ -4,7 +4,7 @@ namespace StbSharp.ImageWrite
 {
     public static unsafe class Gif
     {
-        public static void Write<TImage>(WriteState state, TImage image)
+        public static void Write<TImage>(ImageBinWriter state, TImage image)
             where TImage : IPixelRowProvider
         {
             if (state == null)
