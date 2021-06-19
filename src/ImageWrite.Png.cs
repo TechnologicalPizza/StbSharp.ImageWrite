@@ -116,9 +116,15 @@ namespace StbSharp.ImageWrite
                 }
             }
 
-            public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                Write(buffer.AsSpan(offset, count));
+            }
 
-            public override void WriteByte(byte value) => Write(stackalloc byte[] { value });
+            public override void WriteByte(byte value)
+            {
+                Write(stackalloc byte[] { value });
+            }
 
             public override void Flush()
             {
@@ -139,10 +145,11 @@ namespace StbSharp.ImageWrite
                 if (_chunkType != PngChunkType.IDAT)
                 {
                     if (!length.HasValue)
+                    {
                         throw new ArgumentException(
-                            "Length may not be null if the chunk type is not IDAT.", nameof(length));
-
-                    WriteHeader(length.Value);
+                            "Length may only be null if the chunk type is IDAT.", nameof(length));
+                    }
+                    WriteHeader(length.GetValueOrDefault());
                     _crc = GetInitialCrc(_chunkType);
                 }
 
@@ -193,7 +200,7 @@ namespace StbSharp.ImageWrite
 
             private void WriteBufferedChunk()
             {
-                var slice = _buffer.AsSpan(0, _bufferPos);
+                Span<byte> slice = _buffer.AsSpan(0, _bufferPos);
                 WriteHeader(slice.Length);
                 BaseStream.Write(slice);
                 WriteFooter(Crc32.Calculate(slice, GetInitialCrc(_chunkType)));
@@ -248,7 +255,7 @@ namespace StbSharp.ImageWrite
             int stride = w * n;
             double dHeight = h;
 
-            using (var encoder = new ChunkStream(state.Stream, pool))
+            using (ChunkStream encoder = new(state.Stream, pool))
             {
                 encoder.Write(Signature);
 
@@ -275,31 +282,31 @@ namespace StbSharp.ImageWrite
 
                 #region IDAT
 
-                var previousRowArray = pool.Rent(stride);
-                var currentRowArray = pool.Rent(stride);
-                var resultArray = pool.Rent(1 + stride);
+                byte[] previousRowArray = pool.Rent(stride);
+                byte[] currentRowArray = pool.Rent(stride);
+                byte[] resultArray = pool.Rent(1 + stride);
                 try
                 {
-                    var previousRow = previousRowArray.AsSpan(0, stride);
-                    var currentRow = currentRowArray.AsSpan(0, stride);
-                    var fullResultRow = resultArray.AsSpan(0, 1 + stride);
-                    var resultRow = fullResultRow[1..];
+                    Span<byte> previousRow = previousRowArray.AsSpan(0, stride);
+                    Span<byte> currentRow = currentRowArray.AsSpan(0, stride);
+                    Span<byte> fullResultRow = resultArray.AsSpan(0, 1 + stride);
+                    Span<byte> resultRow = fullResultRow[1..];
 
                     encoder.Begin(PngChunkType.IDAT, null);
-                    using (var compressor = ZlibHelper.CreateCompressor(
+                    using (Stream compressor = ZlibHelper.CreateCompressor(
                         encoder, leaveOpen: true, compressionLevel, deflateCompressorFactory))
                     {
                         for (int y = 0; y < h; y++)
                         {
                             image.GetByteRow(y, currentRow);
 
-                            var filterMap = (y != 0) ? FilterMapping : FirstFilterMapping;
+                            ReadOnlySpan<byte> filterMap = (y != 0) ? FilterMapping : FirstFilterMapping;
                             int filterType;
 
                             if (forcedFilter.HasValue)
                             {
-                                filterType = forcedFilter.Value;
-                                EncodeLine(previousRow, currentRow, n, filterMap[filterType], resultRow);
+                                filterType = forcedFilter.GetValueOrDefault();
+                                EncodeLine(previousRow, currentRow, n, (FilterType)filterMap[filterType], resultRow);
                             }
                             else
                             {
@@ -307,7 +314,7 @@ namespace StbSharp.ImageWrite
                                 uint bestFilterValue = uint.MaxValue;
                                 for (filterType = 0; filterType < 5; filterType++)
                                 {
-                                    EncodeLine(previousRow, currentRow, n, filterMap[filterType], resultRow);
+                                    EncodeLine(previousRow, currentRow, n, (FilterType)filterMap[filterType], resultRow);
 
                                     uint estimate = GetRowEstimate(resultRow);
                                     if (estimate < bestFilterValue)
@@ -321,7 +328,7 @@ namespace StbSharp.ImageWrite
 
                                 if (filterType != bestFilter)
                                 {
-                                    EncodeLine(previousRow, currentRow, n, filterMap[bestFilter], resultRow);
+                                    EncodeLine(previousRow, currentRow, n, (FilterType)filterMap[bestFilter], resultRow);
                                     filterType = bestFilter;
                                 }
                             }
@@ -332,7 +339,7 @@ namespace StbSharp.ImageWrite
                             compressor.Write(fullResultRow);
 
                             // Swap buffers. 
-                            var nextRow = previousRow;
+                            Span<byte> nextRow = previousRow;
                             previousRow = currentRow;
                             currentRow = nextRow;
 
@@ -356,18 +363,17 @@ namespace StbSharp.ImageWrite
             }
         }
 
-        [CLSCompliant(false)]
         public static uint GetRowEstimate(ReadOnlySpan<byte> row)
         {
             uint estimate = 0;
 
             if (Vector.IsHardwareAccelerated)
             {
-                var estimateSum = Vector<uint>.Zero;
+                Vector<uint> estimateSum = Vector<uint>.Zero;
 
                 while (row.Length >= Vector<byte>.Count)
                 {
-                    var source = new Vector<byte>(row);
+                    Vector<byte> source = new(row);
 
                     Vector.Widen(source, out Vector<ushort> shortLow, out Vector<ushort> shortHigh);
 
@@ -397,7 +403,7 @@ namespace StbSharp.ImageWrite
             ReadOnlySpan<byte> previous,
             ReadOnlySpan<byte> current,
             int n,
-            int filterType,
+            FilterType filterType,
             Span<byte> output)
         {
             if (filterType == 0)
@@ -409,23 +415,23 @@ namespace StbSharp.ImageWrite
             int i = n;
             switch (filterType)
             {
-                case 1:
-                case 5:
-                case 6:
+                case FilterType.Sub:
+                case FilterType.AverageFirst:
+                case FilterType.PaethFirst:
                     current.Slice(0, i).CopyTo(output);
                     break;
 
-                case 2:
+                case FilterType.Up:
                     for (int j = 0; j < i; j++)
                         output[j] = (byte)(current[j] - previous[j]);
                     break;
 
-                case 3:
+                case FilterType.Average:
                     for (int j = 0; j < i; j++)
                         output[j] = (byte)(current[j] - (previous[j] / 2));
                     break;
 
-                case 4:
+                case FilterType.Paeth:
                     for (int j = 0; j < i; j++)
                         output[j] = (byte)(current[j] - MathHelper.Paeth(0, previous[j], 0));
                     break;
@@ -433,15 +439,15 @@ namespace StbSharp.ImageWrite
 
             switch (filterType)
             {
-                case 1:
+                case FilterType.Sub:
                     if (Vector.IsHardwareAccelerated)
                     {
                         for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                         {
-                            var v_ncurrent = new Vector<byte>(current[(i - n)..]);
-                            var v_current = new Vector<byte>(current[i..]);
+                            Vector<byte> v_ncurrent = new(current[(i - n)..]);
+                            Vector<byte> v_current = new(current[i..]);
 
-                            var result = v_current - v_ncurrent;
+                            Vector<byte> result = v_current - v_ncurrent;
                             result.CopyTo(output[i..]);
                         }
                     }
@@ -449,15 +455,15 @@ namespace StbSharp.ImageWrite
                         output[i] = (byte)(current[i] - current[i - n]);
                     break;
 
-                case 2:
+                case FilterType.Up:
                     if (Vector.IsHardwareAccelerated)
                     {
                         for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                         {
-                            var v_current = new Vector<byte>(current[i..]);
-                            var v_previous = new Vector<byte>(previous[i..]);
+                            Vector<byte> v_current = new(current[i..]);
+                            Vector<byte> v_previous = new(previous[i..]);
 
-                            var result = v_current - v_previous;
+                            Vector<byte> result = v_current - v_previous;
                             result.CopyTo(output[i..]);
                         }
                     }
@@ -465,7 +471,7 @@ namespace StbSharp.ImageWrite
                         output[i] = (byte)(current[i] - previous[i]);
                     break;
 
-                case 3:
+                case FilterType.Average:
                     // We shouldn't use Vector<T> here as it doesn't intrinsify integer division
                     if (Sse2.IsSupported)
                     {
@@ -475,17 +481,17 @@ namespace StbSharp.ImageWrite
                         {
                             for (; i + Vector128<byte>.Count <= output.Length; i += Vector128<byte>.Count)
                             {
-                                var v_ncurrent = Sse2.LoadVector128(currentPtr + i - n);
-                                var v_current = Sse2.LoadVector128(currentPtr + i);
-                                var v_previous = Sse2.LoadVector128(previousPtr + i);
+                                Vector128<byte> v_ncurrent = Sse2.LoadVector128(currentPtr + i - n);
+                                Vector128<byte> v_current = Sse2.LoadVector128(currentPtr + i);
+                                Vector128<byte> v_previous = Sse2.LoadVector128(previousPtr + i);
 
-                                VectorHelper.Widen(v_ncurrent, out var v_ncurrent1, out var v_ncurrent2);
-                                VectorHelper.Widen(v_previous, out var v_previous1, out var v_previous2);
+                                VectorHelper.Widen(v_ncurrent, out Vector128<ushort> v_ncurrent1, out Vector128<ushort> v_ncurrent2);
+                                VectorHelper.Widen(v_previous, out Vector128<ushort> v_previous1, out Vector128<ushort> v_previous2);
 
-                                var div1 = Sse2.ShiftRightLogical(Sse2.Add(v_ncurrent1, v_previous1), 1);
-                                var div2 = Sse2.ShiftRightLogical(Sse2.Add(v_ncurrent2, v_previous2), 1);
+                                Vector128<ushort> div1 = Sse2.ShiftRightLogical(Sse2.Add(v_ncurrent1, v_previous1), 1);
+                                Vector128<ushort> div2 = Sse2.ShiftRightLogical(Sse2.Add(v_ncurrent2, v_previous2), 1);
 
-                                var result = Sse2.Subtract(v_current, VectorHelper.Narrow(div1, div2));
+                                Vector128<byte> result = Sse2.Subtract(v_current, VectorHelper.Narrow(div1, div2));
                                 Sse2.Store(outputPtr + i, result);
                             }
                         }
@@ -494,17 +500,17 @@ namespace StbSharp.ImageWrite
                         output[i] = (byte)(current[i] - ((current[i - n] + previous[i]) / 2));
                     break;
 
-                case 4:
+                case FilterType.Paeth:
                     if (Vector.IsHardwareAccelerated)
                     {
                         for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                         {
-                            var v_ncurrent = new Vector<byte>(current[(i - n)..]);
-                            var v_current = new Vector<byte>(current[i..]);
-                            var v_nprevious = new Vector<byte>(previous[(i - n)..]);
-                            var v_previous = new Vector<byte>(previous[i..]);
+                            Vector<byte> v_ncurrent = new(current[(i - n)..]);
+                            Vector<byte> v_current = new(current[i..]);
+                            Vector<byte> v_nprevious = new(previous[(i - n)..]);
+                            Vector<byte> v_previous = new(previous[i..]);
 
-                            var result = v_current - MathHelper.Paeth(v_ncurrent, v_previous, v_nprevious);
+                            Vector<byte> result = v_current - MathHelper.Paeth(v_ncurrent, v_previous, v_nprevious);
                             result.CopyTo(output[i..]);
                         }
                     }
@@ -515,7 +521,7 @@ namespace StbSharp.ImageWrite
                     }
                     break;
 
-                case 5:
+                case FilterType.AverageFirst:
                     // We shouldn't use Vector<T> here as it doesn't intrinsify integer division
                     if (Sse2.IsSupported)
                     {
@@ -524,16 +530,16 @@ namespace StbSharp.ImageWrite
                         {
                             for (; i + Vector128<byte>.Count <= output.Length; i += Vector128<byte>.Count)
                             {
-                                var v_ncurrent = Sse2.LoadVector128(currentPtr + i - n);
-                                var v_current = Sse2.LoadVector128(currentPtr + i);
+                                Vector128<byte> v_ncurrent = Sse2.LoadVector128(currentPtr + i - n);
+                                Vector128<byte> v_current = Sse2.LoadVector128(currentPtr + i);
 
-                                VectorHelper.Widen(v_ncurrent, out var v_ncurrent1, out var v_ncurrent2);
-                                VectorHelper.Widen(v_current, out var v_current1, out var v_current2);
+                                VectorHelper.Widen(v_ncurrent, out Vector128<ushort> v_ncurrent1, out Vector128<ushort> v_ncurrent2);
+                                VectorHelper.Widen(v_current, out Vector128<ushort> v_current1, out Vector128<ushort> v_current2);
 
-                                var div1 = Sse2.ShiftRightLogical(v_ncurrent1, 1);
-                                var div2 = Sse2.ShiftRightLogical(v_ncurrent2, 1);
+                                Vector128<ushort> div1 = Sse2.ShiftRightLogical(v_ncurrent1, 1);
+                                Vector128<ushort> div2 = Sse2.ShiftRightLogical(v_ncurrent2, 1);
 
-                                var result = Sse2.Subtract(v_current, VectorHelper.Narrow(div1, div2));
+                                Vector128<byte> result = Sse2.Subtract(v_current, VectorHelper.Narrow(div1, div2));
                                 Sse2.Store(outputPtr + i, result);
                             }
                         }
@@ -542,15 +548,15 @@ namespace StbSharp.ImageWrite
                         output[i] = (byte)(current[i] - (current[i - n] / 2));
                     break;
 
-                case 6:
+                case FilterType.PaethFirst:
                     if (Vector.IsHardwareAccelerated)
                     {
                         for (; i + Vector<byte>.Count <= output.Length; i += Vector<byte>.Count)
                         {
-                            var v_ncurrent = new Vector<byte>(current[(i - n)..]);
-                            var v_current = new Vector<byte>(current[i..]);
+                            Vector<byte> v_ncurrent = new(current[(i - n)..]);
+                            Vector<byte> v_current = new(current[i..]);
 
-                            var result = v_current - MathHelper.Paeth(v_ncurrent, Vector<byte>.Zero, Vector<byte>.Zero);
+                            Vector<byte> result = v_current - MathHelper.Paeth(v_ncurrent, Vector<byte>.Zero, Vector<byte>.Zero);
                             result.CopyTo(output[i..]);
                         }
                     }

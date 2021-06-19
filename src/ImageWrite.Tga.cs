@@ -67,7 +67,7 @@ namespace StbSharp.ImageWrite
                 };
                 ImageWriteHelpers.WriteFormat(state, "111 221 2222 11", headerValues);
 
-                var rowScratch = new byte[width * comp].AsSpan();
+                Span<byte> rowScratch = new byte[width * comp].AsSpan();
                 Span<byte> outBuffer = stackalloc byte[4];
 
                 for (int y = height; y-- > 0;)
@@ -77,7 +77,7 @@ namespace StbSharp.ImageWrite
                     int len;
                     for (int x = 0; x < width; x += len)
                     {
-                        var begin = rowScratch[(x * comp)..];
+                        Span<byte> begin = rowScratch[(x * comp)..];
 
                         // TODO: optimize
 
@@ -86,14 +86,14 @@ namespace StbSharp.ImageWrite
                         if (x < (width - 1))
                         {
                             len++;
-                            var next = rowScratch[((x + 1) * comp)..];
+                            Span<byte> next = rowScratch[((x + 1) * comp)..];
                             diff = begin.Slice(0, comp).SequenceEqual(next.Slice(0, comp));
                             if (!diff)
                             {
-                                var prev = begin;
+                                Span<byte> prev = begin;
                                 for (int k = x + 2; (k < width) && (len < 128); ++k)
                                 {
-                                    var pixel = rowScratch[(k * comp)..];
+                                    Span<byte> pixel = rowScratch[(k * comp)..];
                                     if (!prev.Slice(0, comp).SequenceEqual(pixel.Slice(0, comp)))
                                     {
                                         prev = prev[comp..];
@@ -110,7 +110,7 @@ namespace StbSharp.ImageWrite
                             {
                                 for (int k = x + 2; (k < width) && (len < 128); ++k)
                                 {
-                                    var pixel = rowScratch[(k * comp)..];
+                                    Span<byte> pixel = rowScratch[(k * comp)..];
                                     if (begin.Slice(0, comp).SequenceEqual(pixel.Slice(0, comp)))
                                         len++;
                                     else
@@ -125,7 +125,7 @@ namespace StbSharp.ImageWrite
 
                             for (int k = 0; k < len; k++)
                             {
-                                var pixel = begin.Slice(k * comp, comp);
+                                Span<byte> pixel = begin.Slice(k * comp, comp);
                                 int count = ImageWriteHelpers.WritePixel(
                                     true, hasAlpha, false, pixel, outBuffer);
 
@@ -136,7 +136,7 @@ namespace StbSharp.ImageWrite
                         {
                             state.WriteByte((byte)((len - 129) & 0xff));
 
-                            var pixel = begin.Slice(0, comp);
+                            Span<byte> pixel = begin.Slice(0, comp);
                             int count = ImageWriteHelpers.WritePixel(
                                 true, hasAlpha, false, pixel, outBuffer);
 

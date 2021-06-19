@@ -3,7 +3,8 @@
     <Authors>StbImageWriteSharpTeam</Authors>
     <Product>StbImageWriteSharp</Product>
     <PackageId>StbImageWriteSharp</PackageId>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
+    <Nullable>enable</Nullable>
     <Description>C# port of the stb_image.h</Description>
     <PackageLicenseUrl>Public Domain</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/StbSharp/StbImageWriteSharp</PackageProjectUrl>

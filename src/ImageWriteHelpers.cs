@@ -116,7 +116,7 @@ namespace StbSharp.ImageWrite
 
                 if (offset != stride)
                 {
-                    var padSlice = scanline.Slice(offset, scanlinePad);
+                    Span<byte> padSlice = scanline.Slice(offset, scanlinePad);
                     padSlice.Clear(); // clear possible garbage from last row
                     offset += scanlinePad;
                 }

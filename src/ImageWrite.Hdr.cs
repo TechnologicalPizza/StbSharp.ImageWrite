@@ -25,7 +25,7 @@ namespace StbSharp.ImageWrite
             if (height <= 0 || width <= 0)
                 throw new ArgumentException("Invalid image dimensions.", nameof(state));
 
-            var cult = CultureInfo.InvariantCulture;
+            CultureInfo cult = CultureInfo.InvariantCulture;
             byte[] Head1 = Encoding.UTF8.GetBytes(string.Format(cult,
                 "EXPOSURE=1.0\n\n-Y {0} +X {1}\n", height.ToString(cult), width.ToString(cult)));
 
@@ -38,7 +38,7 @@ namespace StbSharp.ImageWrite
             if (width >= 8 && width < 32768)
                 scratch = new byte[width * 4];
 
-            var rowBuffer = new float[width];
+            float[] rowBuffer = new float[width];
 
             for (int row = 0; row < height; row++)
             {
@@ -86,7 +86,7 @@ namespace StbSharp.ImageWrite
             {
                 Debug.Assert(buffer != null);
 
-                var src = data.AsSpan(0, width * n);
+                Span<float> src = data.AsSpan(0, width * n);
                 for (int x = 0; x < src.Length; x += n)
                 {
                     linear[2] = src[x + ofsB];
@@ -151,7 +151,7 @@ namespace StbSharp.ImageWrite
             }
             else
             {
-                var src = data.AsSpan(0, width * n);
+                Span<float> src = data.AsSpan(0, width * n);
                 for (int x = 0; x < src.Length; x += n)
                 {
                     linear[2] = src[x + ofsB];

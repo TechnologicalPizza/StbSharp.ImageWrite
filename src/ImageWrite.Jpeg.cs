@@ -18,14 +18,10 @@ namespace StbSharp.ImageWrite
 
         public struct BitBuffer16
         {
-            [CLSCompliant(false)]
             public ushort Value;
-
-            [CLSCompliant(false)]
             public ushort Count;
         }
 
-        [CLSCompliant(false)]
         public static void WriteBits(
             ImageBinWriter s, ref BitBuffer32 bitBuf, ushort bs0, ushort bs1)
         {
@@ -131,7 +127,7 @@ namespace StbSharp.ImageWrite
             }
             else
             {
-                var bitBuf16 = CalcBitBuffer16(diff);
+                BitBuffer16 bitBuf16 = CalcBitBuffer16(diff);
                 WriteBits(s, ref bitBuf, HTDC[bitBuf16.Count]);
                 WriteBits(s, ref bitBuf, bitBuf16.Value, bitBuf16.Count);
             }
@@ -164,7 +160,7 @@ namespace StbSharp.ImageWrite
                     nrzeroes &= 15;
                 }
 
-                var bitBuf16 = CalcBitBuffer16(DU[i]);
+                BitBuffer16 bitBuf16 = CalcBitBuffer16(DU[i]);
                 WriteBits(s, ref bitBuf, HTAC[(nrzeroes << 4) + bitBuf16.Count]);
                 WriteBits(s, ref bitBuf, bitBuf16.Value, bitBuf16.Count);
             }
@@ -184,10 +180,10 @@ namespace StbSharp.ImageWrite
             //float sy = -0.16874f * r - 0.33126f * g + 0.50000f * b;
             //float sz = +0.50000f * r - 0.41869f * g - 0.08131f * b;
 
-            var x = r * new Vector3(+0.29900f, -0.16874f, +0.50000f);
-            var y = g * new Vector3(+0.58700f, -0.33126f, -0.41869f);
-            var z = b * new Vector3(+0.11400f, +0.50000f, -0.08131f);
-            var s = (x + y + z) * factor;
+            Vector3 x = r * new Vector3(+0.29900f, -0.16874f, +0.50000f);
+            Vector3 y = g * new Vector3(+0.58700f, -0.33126f, -0.41869f);
+            Vector3 z = b * new Vector3(+0.11400f, +0.50000f, -0.08131f);
+            Vector3 s = (x + y + z) * factor;
 
             YDU[pos] = s.X - 128;
             UDU[pos] = s.Y;
@@ -223,7 +219,7 @@ namespace StbSharp.ImageWrite
             }
 
             int j = 0;
-            var zigZag = ZigZag;
+            ReadOnlySpan<byte> zigZag = ZigZag;
 
             for (int y = 0; y < 8; y++)
             {
@@ -269,7 +265,7 @@ namespace StbSharp.ImageWrite
             quality = quality < 50 ? 5000 / quality : 200 - quality * 2;
             bool subsample = forceSubsample || (allowSubsample && quality <= 90);
 
-            var zigZag = ZigZag;
+            ReadOnlySpan<byte> zigZag = ZigZag;
             for (int i = 0; i < 64; i++)
             {
                 int yti = (YQT[i] * quality + 50) / 100;
@@ -358,7 +354,7 @@ namespace StbSharp.ImageWrite
                 Span<float> floatRow = floatRowBuf;
                 Span<byte> byteRow = byteRowBuf;
 
-                var bitBuf = new BitBuffer32();
+                BitBuffer32 bitBuf = new();
                 Span<float> subU = stackalloc float[subsample ? 64 : 0];
                 Span<float> subV = stackalloc float[subsample ? 64 : 0];
                 Span<float> U = stackalloc float[duSize];
@@ -368,9 +364,6 @@ namespace StbSharp.ImageWrite
                 Span<float> Y2 = subsample ? Y.Slice(8, 128) : default;
                 Span<float> Y3 = subsample ? Y.Slice(128, 128) : default;
                 Span<float> Y4 = subsample ? Y.Slice(136, 120) : default;
-
-                // TODO: optimize
-                // TODO: split into functions and move some branches outside loops
 
                 for (int y = 0; y < height; y += duStride)
                 {
